@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Canna Cultivator - Ultimate</title>
+    <title>Canna Cultivator - Ultimate Edition</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://www.paypal.com/sdk/js?client-id=sb&currency=GBP"></script>
-    
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: linear-gradient(135deg, #1a2e0e 0%, #2d5016 100%); color: #f0f7da; min-height: 100vh; padding: 10px; }
@@ -36,15 +35,13 @@
         button:disabled { opacity: 0.4; cursor: not-allowed; background: linear-gradient(to bottom, #666, #444); }
         .floating-num { position: fixed; color: #76ff03; font-weight: bold; pointer-events: none; animation: floatUp 0.8s ease-out forwards; z-index: 1000; text-shadow: 1px 1px 2px black; font-size: 1.5rem; }
         @keyframes floatUp { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-120px); opacity: 0; } }
-        .helper { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 10px; margin: 5px 0; border-radius: 5px; }
         #chat-box { height: 150px; background: rgba(0,0,0,0.3); border-radius: 5px; margin-top: 10px; padding: 5px; overflow-y: auto; font-size: 0.8em; border: 1px solid #388e3c; }
-        .active-strain { background: rgba(118, 255, 3, 0.2) !important; border-color: #76ff03 !important; }
-        .chat-message { margin: 3px 0; padding: 3px; border-radius: 3px; }
-        .chat-message.user { color: #aed581; }
-        .chat-message.other { color: #f0f7da; }
+        .active-strain { background: rgba(118, 255, 3, 0.3) !important; border-color: #76ff03 !important; }
+        #cloud-status { font-size: 0.7em; color: #76ff03; position: fixed; bottom: 5px; right: 10px; opacity: 0.6; }
     </style>
 </head>
 <body>
+    <div id="cloud-status">Cloud Synced</div>
     <div class="container">
         <div class="header">
             <h1 class="game-title">🌿 Canna Cultivator</h1>
@@ -55,7 +52,7 @@
                 <small id="expText">0 / 1,000 EXP</small>
             </div>
         </div>
-        
+
         <div class="game-area">
             <div class="main-garden">
                 <h2 class="section-title">Cultivation</h2>
@@ -63,36 +60,29 @@
                 <div class="coins-display" id="coinsDisplay">0 Grams</div>
                 <p class="herb-count" id="hpcDisplay">1g/click</p>
                 <p class="herb-count" id="hpsDisplay">0g/sec</p>
-
                 <div class="prestige-box">
                     <div style="color:#76ff03; font-weight: bold;">Mastery Multiplier: x<span id="prestigeMult">1</span></div>
                     <button id="prestigeBtn" onclick="buyMaxPrestige()">Buy Max Mastery</button>
-                    
                     <div class="paypal-container">
                         <p style="color:#fff; font-weight: bold;">PERMANENT x20 BOOST (STACKABLE)</p>
                         <div class="price-badge">ONLY £4.99</div>
-                        <p style="color:#aed581; font-size: 0.8em; margin-bottom: 10px;">Current Stacks: <span id="stackCount">0</span></p>
                         <div id="paypal-button-container"></div>
                     </div>
                 </div>
             </div>
-            
+
             <div class="stats-sidebar">
                 <h2 class="section-title">Leaderboard</h2>
                 <div id="leaderboard" class="leaderboard-list"></div>
-                
                 <h2 class="section-title" style="margin-top:20px;">Global Chat</h2>
                 <div id="chat-box"></div>
-                <input type="text" id="chatInput" placeholder="Press Enter to chat..." style="width:100%; background:#1b3012; border:1px solid #4caf50; color:#fff; padding:5px; margin-top:5px; border-radius:5px;">
-
+                <input type="text" id="chatInput" placeholder="Press Enter to chat...">
                 <h2 class="section-title" style="margin-top:20px;">The Crew</h2>
-                <div class="helper"><span>Trimmers:</span><b id="count-trimmers">0</b></div>
-                <div class="helper"><span>Growers:</span><b id="count-growers">0</b></div>
                 <div id="crewButtons"></div>
             </div>
-            
+
             <div class="upgrades-shop">
-                <h2 class="section-title">Strains (Stacking)</h2>
+                <h2 class="section-title">Strains (Permanent Boost)</h2>
                 <div id="strainList"></div>
                 <h2 class="section-title" style="margin-top:20px;">Supplies</h2>
                 <div id="shopList"></div>
@@ -102,184 +92,172 @@
     </div>
 
     <script>
-        // SUPABASE CONFIG
         const SB_URL = 'https://klcqhrajnhegzmzfdzji.supabase.co';
         const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsY3FocmFqbmhlZ3ptemZkemppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0NTk1MjcsImV4cCI6MjA4MzAzNTUyN30.DhESHsa5cmHTvetWtEIBqGQHfiXml4eOpUteC8A-LAU';
-        const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
+        const sb = supabase.createClient(SB_URL, SB_KEY);
 
-        // DATA
-        let gameState = {
-            playerName: "", grams: 0, totalHarvested: 0, prestigeLevel: 1, level: 1, exp: 0, donations: 0,
-            multipliers: { tap: 1, auto: 1, strain: 1 },
+        let state = {
+            playerName: "", grams: 0, prestigeLevel: 1, level: 1, exp: 0, donations: 0,
+            multipliers: { tap: 1, auto: 1 },
             crew: { trimmers: { count: 0, cost: 20 }, growers: { count: 0, cost: 150 } },
-            upgrades: [], strainsOwned: ['ditch']
+            upgrades: [], strains: [] // "strains" stores IDs of already purchased strains
         };
 
-        const upgradesData = [
-            { id: 'shears', name: 'Sharp Shears', cost: 100, bonus: 2, type: 'tap', desc: 'x2 Tap Yield' },
-            { id: 'lights', name: 'LED Lights', cost: 500, bonus: 1.5, type: 'auto', desc: 'x1.5 Auto Yield' },
-            { id: 'hydro', name: 'Hydroponics', cost: 2000, bonus: 3, type: 'auto', desc: 'x3 Auto Yield' }
-        ];
+        const staticData = {
+            upgrades: [
+                { id: 'shears', name: 'Sharp Shears', cost: 100, bonus: 2, type: 'tap' },
+                { id: 'lights', name: 'LED Lights', cost: 500, bonus: 1.5, type: 'auto' },
+                { id: 'hydro', name: 'Hydroponics', cost: 2000, bonus: 3, type: 'auto' }
+            ],
+            strains: [
+                { id: 'skunk', name: 'Skunk #1', cost: 1000, mult: 2 },
+                { id: 'haze', name: 'Purple Haze', cost: 5000, mult: 5 },
+                { id: 'kush', name: 'OG Kush', cost: 25000, mult: 10 },
+                { id: 'widow', name: 'White Widow', cost: 100000, mult: 50 }
+            ]
+        };
 
-        const strainsData = [
-            { id: 'skunk', name: 'Skunk #1', cost: 1000, mult: 2 },
-            { id: 'haze', name: 'Purple Haze', cost: 5000, mult: 5 },
-            { id: 'kush', name: 'OG Kush', cost: 25000, mult: 10 },
-            { id: 'widow', name: 'White Widow', cost: 100000, mult: 50 }
-        ];
-
-        // HELPERS
-        function formatNum(num) {
-            if (num < 1000) return Math.floor(num).toLocaleString();
-            const suffixes = ["", "k", "m", "b", "t"];
-            const exp = Math.floor(Math.log10(num) / 3);
-            return (num / Math.pow(10, exp * 3)).toFixed(2) + suffixes[exp];
+        function format(n) {
+            if (n < 1000) return Math.floor(n).toLocaleString();
+            const s = ["", "k", "m", "b", "t"];
+            const e = Math.floor(Math.log10(n) / 3);
+            return (n / Math.pow(10, e * 3)).toFixed(2) + s[e];
         }
 
-        function getDonationMult() { return 1 + (gameState.donations * 20); }
-        function getNextPrestigeCost() { return 10000 * (gameState.prestigeLevel ** 2); }
-        function getRequiredEXP() { return (gameState.level ** 2) * 1000; }
-        
+        // Multiplier is calculated from ALL owned strains
         function getStrainMult() {
-            let total = 1;
-            strainsData.forEach(s => { if(gameState.strainsOwned.includes(s.id)) total *= s.mult; });
-            return total;
+            let m = 1;
+            staticData.strains.forEach(s => { if(state.strains.includes(s.id)) m *= s.mult; });
+            return m;
         }
 
-        // LOGIC
         function updateUI() {
-            const levelMult = 1 + (gameState.level * 0.05);
-            const totalMult = getStrainMult() * gameState.prestigeLevel * levelMult * getDonationMult();
-            const hps = (gameState.crew.trimmers.count * 1 + gameState.crew.growers.count * 5) * gameState.multipliers.auto * totalMult;
-            
-            document.getElementById('coinsDisplay').innerText = `${formatNum(gameState.grams)} Grams`;
-            document.getElementById('count-trimmers').innerText = gameState.crew.trimmers.count;
-            document.getElementById('count-growers').innerText = gameState.crew.growers.count;
-            document.getElementById('hpsDisplay').innerText = `${formatNum(hps)}g/sec`;
-            document.getElementById('hpcDisplay').innerText = `${formatNum(1 * gameState.multipliers.tap * totalMult)}g/click`;
-            document.getElementById('prestigeMult').innerText = formatNum(gameState.prestigeLevel * getDonationMult());
-            document.getElementById('stackCount').innerText = gameState.donations;
-            
-            const reqExp = getRequiredEXP();
-            document.getElementById('levelDisplay').innerText = gameState.level;
-            document.getElementById('expBar').style.width = `${Math.min(100, (gameState.exp / reqExp) * 100)}%`;
-            document.getElementById('expText').innerText = `${formatNum(gameState.exp)} / ${formatNum(reqExp)} EXP`;
-            
-            document.getElementById('prestigeBtn').disabled = gameState.grams < getNextPrestigeCost();
+            const totalMult = getStrainMult() * state.prestigeLevel * (1 + (state.level * 0.05)) * (1 + (state.donations * 20));
+            const hps = (state.crew.trimmers.count * 1 + state.crew.growers.count * 5) * state.multipliers.auto * totalMult;
+            const hpc = 1 * state.multipliers.tap * totalMult;
+
+            document.getElementById('coinsDisplay').innerText = `${format(state.grams)} Grams`;
+            document.getElementById('hpsDisplay').innerText = `${format(hps)}g/sec`;
+            document.getElementById('hpcDisplay').innerText = `${format(hpc)}g/click`;
+            document.getElementById('prestigeMult').innerText = format(state.prestigeLevel * (1 + state.donations * 20));
+
+            const req = (state.level ** 2) * 1000;
+            document.getElementById('levelDisplay').innerText = state.level;
+            document.getElementById('expBar').style.width = `${(state.exp / req) * 100}%`;
+            document.getElementById('expText').innerText = `${format(state.exp)} / ${format(req)} EXP`;
+            document.getElementById('prestigeBtn').disabled = state.grams < (10000 * (state.prestigeLevel ** 2));
+
             renderShop();
         }
 
         function renderShop() {
-            document.getElementById('crewButtons').innerHTML = Object.keys(gameState.crew).map(id => {
-                const c = gameState.crew[id];
-                return `<div class="upgrade-item"><b>${id}</b><button onclick="buyCrew('${id}', true)" ${gameState.grams < c.cost ? 'disabled' : ''}>Buy Max (${formatNum(c.cost)}g)</button></div>`;
+            document.getElementById('crewButtons').innerHTML = Object.keys(state.crew).map(id => `
+                <div class="upgrade-item"><b>${id}</b><button onclick="buyCrew('${id}')" ${state.grams < state.crew[id].cost ? 'disabled' : ''}>Buy Max (${format(state.crew[id].cost)}g)</button></div>
+            `).join('');
+
+            document.getElementById('shopList').innerHTML = staticData.upgrades.map(u => {
+                const owned = state.upgrades.includes(u.id);
+                return `<div class="upgrade-item"><b>${u.name}</b><button onclick="buyUpgrade('${u.id}')" ${owned || state.grams < u.cost ? 'disabled' : ''}>${owned ? 'OWNED' : 'Buy ('+format(u.cost)+'g)'}</button></div>`;
             }).join('');
-            
-            document.getElementById('shopList').innerHTML = upgradesData.map((up, i) => {
-                const owned = gameState.upgrades.includes(up.id);
-                return `<div class="upgrade-item"><b>${up.name}</b><button onclick="buyUpgrade(${i})" ${owned || gameState.grams < up.cost ? 'disabled' : ''}>${owned ? 'OWNED' : 'Buy (' + formatNum(up.cost) + 'g)'}</button></div>`;
-            }).join('');
-            
-            document.getElementById('strainList').innerHTML = strainsData.map((st, i) => {
-                const owned = gameState.strainsOwned.includes(st.id);
-                return `<div class="upgrade-item ${owned ? 'active-strain' : ''}"><b>${st.name}</b><button onclick="buyStrain(${i})" ${owned || gameState.grams < st.cost ? 'disabled' : ''}>${owned ? 'PERMANENT x'+st.mult : 'Buy (' + formatNum(st.cost) + 'g)'}</button></div>`;
+
+            document.getElementById('strainList').innerHTML = staticData.strains.map(s => {
+                const owned = state.strains.includes(s.id);
+                return `<div class="upgrade-item ${owned ? 'active-strain' : ''}"><b>${s.name} (x${s.mult})</b><button onclick="buyStrain('${s.id}')" ${owned || state.grams < s.cost ? 'disabled' : ''}>${owned ? 'PURCHASED' : 'Buy ('+format(s.cost)+'g)'}</button></div>`;
             }).join('');
         }
 
-        function clickPlant(e) {
-            const levelMult = 1 + (gameState.level * 0.05);
-            const amount = 1 * gameState.multipliers.tap * getStrainMult() * gameState.prestigeLevel * levelMult * getDonationMult();
-            gameState.grams += amount; 
-            gameState.exp += 15 * gameState.prestigeLevel;
-            if(gameState.exp >= getRequiredEXP()) { gameState.exp -= getRequiredEXP(); gameState.level++; }
-            updateUI();
-        }
-
-        function buyCrew(id, max) {
-            while (gameState.grams >= gameState.crew[id].cost) {
-                gameState.grams -= gameState.crew[id].cost; 
-                gameState.crew[id].count++;
-                gameState.crew[id].cost = Math.floor(gameState.crew[id].cost * 1.25);
-                if (!max) break;
+        function buyCrew(id) {
+            while(state.grams >= state.crew[id].cost) {
+                state.grams -= state.crew[id].cost;
+                state.crew[id].count++;
+                state.crew[id].cost = Math.floor(state.crew[id].cost * 1.25);
             }
             updateUI();
         }
 
         function buyMaxPrestige() {
-            while (gameState.grams >= getNextPrestigeCost()) {
-                gameState.grams -= getNextPrestigeCost();
-                gameState.prestigeLevel++;
+            while(state.grams >= (10000 * (state.prestigeLevel ** 2))) {
+                state.grams -= (10000 * (state.prestigeLevel ** 2));
+                state.prestigeLevel++;
             }
             updateUI();
         }
 
-        function buyStrain(i) {
-            const s = strainsData[i];
-            if(!gameState.strainsOwned.includes(s.id) && gameState.grams >= s.cost) {
-                gameState.grams -= s.cost; 
-                gameState.strainsOwned.push(s.id);
+        function buyStrain(id) {
+            const s = staticData.strains.find(x => x.id === id);
+            // Only allow purchase if NOT owned and can afford
+            if(!state.strains.includes(id) && state.grams >= s.cost) {
+                state.grams -= s.cost;
+                state.strains.push(id);
+                updateUI();
+            }
+        }
+
+        function buyUpgrade(id) {
+            const u = staticData.upgrades.find(x => x.id === id);
+            if(!state.upgrades.includes(id) && state.grams >= u.cost) {
+                state.grams -= u.cost;
+                state.upgrades.push(id);
+                state.multipliers[u.type] *= u.bonus;
             }
             updateUI();
         }
 
-        function buyUpgrade(i) {
-            const u = upgradesData[i];
-            if(!gameState.upgrades.includes(u.id) && gameState.grams >= u.cost) {
-                gameState.grams -= u.cost; 
-                gameState.upgrades.push(u.id);
-                if(u.type === 'tap') gameState.multipliers.tap *= u.bonus;
-                if(u.type === 'auto') gameState.multipliers.auto *= u.bonus;
-            }
+        function clickPlant(e) {
+            const totalMult = getStrainMult() * state.prestigeLevel * (1 + (state.level * 0.05)) * (1 + (state.donations * 20));
+            state.grams += 1 * state.multipliers.tap * totalMult;
+            state.exp += 15 * state.prestigeLevel;
+            if(state.exp >= (state.level ** 2) * 1000) { state.exp -= (state.level ** 2) * 1000; state.level++; }
             updateUI();
         }
 
-        function gameLoop() {
-            const totalMult = getStrainMult() * gameState.prestigeLevel * (1 + (gameState.level * 0.05)) * getDonationMult();
-            const hps = (gameState.crew.trimmers.count * 1 + gameState.crew.growers.count * 5) * gameState.multipliers.auto * totalMult;
-            gameState.grams += hps / 10;
-            gameState.exp += (hps / 200);
-            if(gameState.exp >= getRequiredEXP()) { gameState.exp -= getRequiredEXP(); gameState.level++; }
-            updateUI();
-        }
-
-        // SUPABASE
-        async function saveToDB() {
-            if(!gameState.playerName) return;
-            await supabaseClient.from('leaderboard').upsert({
-                player_name: gameState.playerName,
-                grams: Math.floor(gameState.grams),
-                player_level: gameState.level,
-                game_state: gameState,
-                last_active: new Date()
+        async function save() {
+            if(!state.playerName) return;
+            localStorage.setItem('cannaSave', JSON.stringify(state));
+            const { error } = await sb.from('leaderboard').upsert({
+                player_name: state.playerName, grams: Math.floor(state.grams),
+                player_level: state.level, game_state: state, last_active: new Date()
             });
+            document.getElementById('cloud-status').innerText = error ? "Sync Error" : "Cloud Synced";
         }
 
         async function init() {
-            const saved = localStorage.getItem('cannaCultivatorSave');
-            if(saved) gameState = Object.assign(gameState, JSON.parse(saved));
-            
-            gameState.playerName = prompt("Enter Grower Name:", gameState.playerName || "Grower" + Math.floor(Math.random()*999)) || "Grower";
-            document.getElementById('playerNameDisplay').innerText = gameState.playerName;
+            const local = localStorage.getItem('cannaSave');
+            if(local) state = JSON.parse(local);
+            state.playerName = prompt("Enter Grower Name:", state.playerName || "Grower" + Math.floor(Math.random()*999)) || "Grower";
+            document.getElementById('playerNameDisplay').innerText = state.playerName;
 
-            // Load Cloud
-            const { data } = await supabaseClient.from('leaderboard').select('game_state').eq('player_name', gameState.playerName).single();
-            if(data) gameState = data.game_state;
+            const { data } = await sb.from('leaderboard').select('game_state').eq('player_name', state.playerName).single();
+            if(data) state = data.game_state;
 
-            // Realtime
-            supabaseClient.channel('chat').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, p => {
-                const cb = document.getElementById('chat-box');
-                cb.innerHTML += `<div class="chat-message"><b>${p.new.player_name}:</b> ${p.new.message_text}</div>`;
-                cb.scrollTop = cb.scrollHeight;
+            sb.channel('chat').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, p => {
+                const box = document.getElementById('chat-box');
+                box.innerHTML += `<div><b>${p.new.player_name}:</b> ${p.new.message_text}</div>`;
+                box.scrollTop = box.scrollHeight;
             }).subscribe();
 
-            setInterval(gameLoop, 100);
-            setInterval(saveToDB, 1000); // SAVE EVERY SECOND
+            setInterval(() => {
+                const totalMult = getStrainMult() * state.prestigeLevel * (1 + (state.level * 0.05)) * (1 + (state.donations * 20));
+                const hps = (state.crew.trimmers.count * 1 + state.crew.growers.count * 5) * state.multipliers.auto * totalMult;
+                state.grams += hps / 10;
+                state.exp += (hps / 200);
+                if(state.exp >= (state.level ** 2) * 1000) { state.exp -= (state.level ** 2) * 1000; state.level++; }
+                updateUI();
+            }, 100);
+
+            setInterval(save, 1000);
+            document.getElementById('chatInput').addEventListener('keypress', async e => {
+                if(e.key === 'Enter' && e.target.value.trim()){
+                    await sb.from('messages').insert([{player_name:state.playerName, message_text:e.target.value}]);
+                    e.target.value = '';
+                }
+            });
             updateUI();
         }
 
+        function resetGame() { if(confirm("Wipe local save?")) { localStorage.clear(); location.reload(); } }
         document.getElementById('clickArea').addEventListener('click', clickPlant);
         window.onload = init;
     </script>
 </body>
 </html>
-
