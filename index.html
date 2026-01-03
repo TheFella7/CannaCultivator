@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Canna Cultivator - Live</title>
     <script src="https://www.paypal.com/sdk/js?client-id=sb&currency=GBP"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: linear-gradient(135deg, #1a2e0e 0%, #2d5016 100%); color: #f0f7da; min-height: 100vh; padding: 10px; }
@@ -31,11 +32,16 @@
         .paypal-container { margin-top: 15px; padding: 12px; background: rgba(0, 0, 0, 0.4); border-radius: 12px; border: 2px solid #ffc107; }
         .price-badge { display: inline-block; background: #ffc107; color: #000; padding: 2px 8px; border-radius: 5px; font-weight: bold; font-size: 1.1em; margin: 5px 0; }
         button { background: linear-gradient(to bottom, #4caf50, #2e7d32); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 5px; transition: 0.2s; }
-        button:disabled { opacity: 0.4; cursor: not-allowed; }
+        button:disabled { opacity: 0.4; cursor: not-allowed; background: linear-gradient(to bottom, #666, #444); }
         .floating-num { position: fixed; color: #76ff03; font-weight: bold; pointer-events: none; animation: floatUp 0.8s ease-out forwards; z-index: 1000; text-shadow: 1px 1px 2px black; font-size: 1.5rem; }
         @keyframes floatUp { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-120px); opacity: 0; } }
         .helper { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 10px; margin: 5px 0; border-radius: 5px; }
         #chat-box { height: 150px; background: rgba(0,0,0,0.3); border-radius: 5px; margin-top: 10px; padding: 5px; overflow-y: auto; font-size: 0.8em; border: 1px solid #388e3c; }
+        .active-strain { background: rgba(118, 255, 3, 0.2) !important; border-color: #76ff03 !important; }
+        .chat-message { margin: 3px 0; padding: 3px; border-radius: 3px; }
+        .chat-message.system { color: #76ff03; font-style: italic; }
+        .chat-message.user { color: #aed581; }
+        .chat-message.other { color: #f0f7da; }
     </style>
 </head>
 <body>
@@ -76,7 +82,9 @@
                 <div id="leaderboard" class="leaderboard-list"></div>
                 
                 <h2 class="section-title" style="margin-top:20px;">Global Chat</h2>
-                <div id="chat-box">System: Welcome to the grow room!</div>
+                <div id="chat-box">
+                    <div class="chat-message system">System: Welcome to the grow room!</div>
+                </div>
                 <input type="text" id="chatInput" placeholder="Press Enter to chat..." style="width:100%; background:#1b3012; border:1px solid #4caf50; color:#fff; padding:5px; margin-top:5px; border-radius:5px;">
 
                 <h2 class="section-title" style="margin-top:20px;">The Crew</h2>
@@ -96,6 +104,25 @@
     </div>
 
     <script>
+        // Supabase Configuration
+        const SUPABASE_URL = 'https://klcqhrajnhegzmzfdzji.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsY3FocmFqbmhlZ3ptemZkemppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0NTk1MjcsImV4cCI6MjA4MzAzNTUyN30.DhESHsa5cmHTvetWtEIBqGQHfiXml4eOpUteC8A-LAU';
+        
+        // Initialize Supabase
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        
+        // Player ID for tracking
+        let playerId = localStorage.getItem('playerId');
+        if (!playerId) {
+            playerId = 'player_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('playerId', playerId);
+        }
+        
+        // Real-time subscriptions
+        let leaderboardSubscription = null;
+        let chatSubscription = null;
+        let purchasesSubscription = null;
+        
         function formatNum(num) {
             if (num < 1000) return Math.floor(num).toLocaleString();
             const suffixes = ["", "k", "m", "b", "t"];
@@ -107,7 +134,8 @@
             playerName: "", grams: 0, totalHarvested: 0, prestigeLevel: 1, level: 1, exp: 0, donations: 0,
             multipliers: { tap: 1, auto: 1, strain: 1 },
             crew: { trimmers: { count: 0, cost: 20, power: 1 }, growers: { count: 0, cost: 150, power: 5 } },
-            upgrades: [], strainsOwned: ['ditch']
+            upgrades: [], strainsOwned: ['ditch'],
+            currentStrain: 'ditch'
         };
 
         const upgrades = [
@@ -127,28 +155,344 @@
         function getNextPrestigeCost(level) { return 10000 * (level ** 2); }
         function getRequiredEXP(level) { return (level ** 2) * 1000; }
 
-        function init() {
+        async function init() {
             const saved = localStorage.getItem('cannaCultivatorSave');
-            if(saved) gameState = Object.assign(gameState, JSON.parse(saved));
-            if(!gameState.playerName) gameState.playerName = prompt("Name:", "Grower") || "Grower";
+            if(saved) {
+                const loaded = JSON.parse(saved);
+                // Ensure all properties exist
+                gameState = Object.assign({}, gameState, loaded);
+                // Backward compatibility for missing properties
+                if (!gameState.currentStrain) gameState.currentStrain = 'ditch';
+                if (!gameState.strainsOwned) gameState.strainsOwned = ['ditch'];
+                if (!gameState.donations) gameState.donations = 0;
+            }
+            
+            if(!gameState.playerName) {
+                gameState.playerName = prompt("Enter your grower name:", "Grower") || "Grower";
+            }
+            
             document.getElementById('playerNameDisplay').innerText = gameState.playerName;
-            renderShop(); gameLoop(); initPayPal();
+            renderShop(); 
+            updateUI();
+            
+            // Initialize Supabase
+            await initSupabase();
+            
+            // Initialize PayPal after a short delay
+            setTimeout(initPayPal, 500);
+            
+            // Start game loop
+            setInterval(gameLoop, 100);
+            
+            // Setup chat input
+            document.getElementById('chatInput').addEventListener('keypress', function(e) {
+                if(e.key === 'Enter' && this.value.trim()) {
+                    sendChatMessage(this.value.trim());
+                    this.value = '';
+                }
+            });
+        }
+        
+        async function initSupabase() {
+            try {
+                // First, register or update player
+                await registerPlayer();
+                
+                // Load leaderboard
+                await loadLeaderboard();
+                
+                // Load chat history
+                await loadChatHistory();
+                
+                // Load purchase history
+                await loadPurchases();
+                
+                // Set up real-time subscriptions
+                setupRealtimeSubscriptions();
+                
+            } catch (error) {
+                console.error('Supabase initialization error:', error);
+                showChatMessage('System: Leaderboard offline - using local data', 'system');
+            }
+        }
+        
+        async function registerPlayer() {
+            try {
+                const { data, error } = await supabase
+                    .from('players')
+                    .upsert({
+                        player_id: playerId,
+                        player_name: gameState.playerName,
+                        grams: gameState.grams,
+                        level: gameState.level,
+                        prestige_level: gameState.prestigeLevel,
+                        last_active: new Date().toISOString()
+                    }, { onConflict: 'player_id' });
+                    
+                if (error) throw error;
+            } catch (error) {
+                console.error('Error registering player:', error);
+            }
+        }
+        
+        async function updatePlayerStats() {
+            try {
+                const { error } = await supabase
+                    .from('players')
+                    .upsert({
+                        player_id: playerId,
+                        player_name: gameState.playerName,
+                        grams: gameState.grams,
+                        level: gameState.level,
+                        prestige_level: gameState.prestigeLevel,
+                        total_harvested: gameState.totalHarvested,
+                        last_active: new Date().toISOString()
+                    }, { onConflict: 'player_id' });
+                    
+                if (error) throw error;
+            } catch (error) {
+                console.error('Error updating player stats:', error);
+            }
+        }
+        
+        async function loadLeaderboard() {
+            try {
+                const { data, error } = await supabase
+                    .from('players')
+                    .select('player_id, player_name, grams, level, prestige_level')
+                    .order('grams', { ascending: false })
+                    .limit(10);
+                    
+                if (error) throw error;
+                
+                if (data && data.length > 0) {
+                    updateLeaderboardUI(data);
+                }
+            } catch (error) {
+                console.error('Error loading leaderboard:', error);
+            }
+        }
+        
+        function updateLeaderboardUI(players) {
+            const leaderboardDiv = document.getElementById('leaderboard');
+            let html = '';
+            
+            players.forEach((player, index) => {
+                const isYou = player.player_id === playerId;
+                const rank = index + 1;
+                const rowClass = isYou ? 'leaderboard-item you-row' : 'leaderboard-item';
+                
+                html += `
+                    <div class="${rowClass}">
+                        <b>#${rank} ${player.player_name.toUpperCase()}</b>
+                        <div class="lb-stats">
+                            <span>Lvl ${player.level}</span>
+                            <span>${formatNum(player.grams)}g</span>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            leaderboardDiv.innerHTML = html;
+        }
+        
+        async function loadChatHistory() {
+            try {
+                const { data, error } = await supabase
+                    .from('chat')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(20);
+                    
+                if (error) throw error;
+                
+                if (data && data.length > 0) {
+                    const chatBox = document.getElementById('chat-box');
+                    data.reverse().forEach(message => {
+                        const className = message.player_id === playerId ? 'user' : 'other';
+                        if (message.player_id === 'system') {
+                            chatBox.innerHTML += `<div class="chat-message system">${message.message}</div>`;
+                        } else {
+                            chatBox.innerHTML += `<div class="chat-message ${className}"><b>${message.player_name}:</b> ${message.message}</div>`;
+                        }
+                    });
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                }
+            } catch (error) {
+                console.error('Error loading chat history:', error);
+            }
+        }
+        
+        async function sendChatMessage(message) {
+            try {
+                const { error } = await supabase
+                    .from('chat')
+                    .insert({
+                        player_id: playerId,
+                        player_name: gameState.playerName,
+                        message: message
+                    });
+                    
+                if (error) throw error;
+            } catch (error) {
+                console.error('Error sending chat message:', error);
+                // Fallback: show message locally
+                showChatMessage(`${gameState.playerName}: ${message}`, 'user');
+            }
+        }
+        
+        function showChatMessage(message, type = 'system') {
+            const chatBox = document.getElementById('chat-box');
+            const className = type === 'system' ? 'system' : (type === 'user' ? 'user' : 'other');
+            chatBox.innerHTML += `<div class="chat-message ${className}">${message}</div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+            
+            // Limit messages to 50
+            const messages = chatBox.querySelectorAll('.chat-message');
+            if (messages.length > 50) {
+                messages[0].remove();
+            }
+        }
+        
+        async function loadPurchases() {
+            try {
+                const { data, error } = await supabase
+                    .from('purchases')
+                    .select('*')
+                    .eq('player_id', playerId)
+                    .order('created_at', { ascending: false })
+                    .limit(10);
+                    
+                if (error) throw error;
+                
+                // Update donations count from purchases
+                if (data && data.length > 0) {
+                    const donationPurchases = data.filter(p => p.item_type === 'donation');
+                    gameState.donations = donationPurchases.length;
+                    updateUI();
+                }
+            } catch (error) {
+                console.error('Error loading purchases:', error);
+            }
+        }
+        
+        async function recordPurchase(itemType, itemName, itemCost) {
+            try {
+                const { error } = await supabase
+                    .from('purchases')
+                    .insert({
+                        player_id: playerId,
+                        player_name: gameState.playerName,
+                        item_type: itemType,
+                        item_name: itemName,
+                        item_cost: itemCost
+                    });
+                    
+                if (error) throw error;
+            } catch (error) {
+                console.error('Error recording purchase:', error);
+            }
+        }
+        
+        function setupRealtimeSubscriptions() {
+            // Leaderboard updates
+            leaderboardSubscription = supabase
+                .channel('leaderboard-updates')
+                .on('postgres_changes', 
+                    { event: '*', schema: 'public', table: 'players' }, 
+                    () => loadLeaderboard()
+                )
+                .subscribe();
+            
+            // Chat updates
+            chatSubscription = supabase
+                .channel('chat-updates')
+                .on('postgres_changes', 
+                    { event: 'INSERT', schema: 'public', table: 'chat' }, 
+                    (payload) => {
+                        const newMessage = payload.new;
+                        if (newMessage.player_id !== playerId) {
+                            if (newMessage.player_id === 'system') {
+                                showChatMessage(newMessage.message, 'system');
+                            } else {
+                                showChatMessage(`<b>${newMessage.player_name}:</b> ${newMessage.message}`, 'other');
+                            }
+                        }
+                    }
+                )
+                .subscribe();
+            
+            // Purchase updates (for this player only)
+            purchasesSubscription = supabase
+                .channel('purchase-updates')
+                .on('postgres_changes', 
+                    { event: 'INSERT', schema: 'public', table: 'purchases', filter: `player_id=eq.${playerId}` }, 
+                    (payload) => {
+                        const purchase = payload.new;
+                        if (purchase.item_type === 'donation') {
+                            gameState.donations++;
+                            updateUI();
+                            showChatMessage(`System: ${gameState.playerName} purchased a permanent x20 boost!`, 'system');
+                        }
+                    }
+                )
+                .subscribe();
         }
 
         function initPayPal() {
-            paypal.Buttons({
-                createOrder: (data, actions) => actions.order.create({ purchase_units: [{ amount: { value: '4.99' }, payee: { email_address: 'mrliamc90@gmail.com' } }] }),
-                onApprove: (data, actions) => actions.order.capture().then(() => { gameState.donations++; updateUI(); })
-            }).render('#paypal-button-container');
+            if (typeof paypal === 'undefined') {
+                console.error('PayPal SDK not loaded');
+                return;
+            }
+            
+            try {
+                paypal.Buttons({
+                    createOrder: function(data, actions) {
+                        return actions.order.create({
+                            purchase_units: [{
+                                amount: {
+                                    value: '4.99'
+                                }
+                            }]
+                        });
+                    },
+                    onApprove: async function(data, actions) {
+                        return actions.order.capture().then(async function(details) {
+                            // Record the purchase in Supabase
+                            await recordPurchase('donation', 'Permanent x20 Boost', 4.99);
+                            
+                            // Update local state
+                            gameState.donations++;
+                            updateUI();
+                            
+                            // Show system message
+                            showChatMessage('System: Thank you for your donation! Permanent x20 boost applied!', 'system');
+                            
+                            // Alert the user
+                            alert('Thank you for your donation! Permanent x20 boost applied!');
+                        });
+                    }
+                }).render('#paypal-button-container');
+            } catch (error) {
+                console.error('PayPal initialization error:', error);
+            }
         }
 
         function clickPlant(e) {
             const totalMult = gameState.multipliers.strain * gameState.prestigeLevel * (1 + (gameState.level * 0.05)) * getDonationMult();
             const amount = 1 * gameState.multipliers.tap * totalMult;
-            gameState.grams += amount; gameState.exp += 10;
-            const float = document.createElement('div'); float.className = 'floating-num'; float.innerText = `+${formatNum(amount)}g`;
-            float.style.left = `${e.clientX}px`; float.style.top = `${e.clientY}px`;
-            document.body.appendChild(float); setTimeout(() => float.remove(), 800);
+            gameState.grams += amount; 
+            gameState.exp += 10;
+            gameState.totalHarvested += amount;
+            
+            const float = document.createElement('div'); 
+            float.className = 'floating-num'; 
+            float.innerText = `+${formatNum(amount)}g`;
+            float.style.left = `${e.clientX}px`; 
+            float.style.top = `${e.clientY}px`;
+            document.body.appendChild(float); 
+            setTimeout(() => float.remove(), 800);
+            
             updateUI();
         }
 
@@ -169,46 +513,128 @@
             const reqExp = getRequiredEXP(gameState.level);
             document.getElementById('levelDisplay').innerText = gameState.level;
             document.getElementById('expBar').style.width = `${(gameState.exp / reqExp) * 100}%`;
-            document.getElementById('leaderboard').innerHTML = `<div class="leaderboard-item you-row"><b>#1 ${gameState.playerName.toUpperCase()}</b><div class="lb-stats"><span>Lvl ${gameState.level}</span><span>${formatNum(gameState.grams)}g</span></div></div>`;
+            document.getElementById('expText').innerText = `${formatNum(gameState.exp)} / ${formatNum(reqExp)} EXP`;
+            
+            // Update prestige button state
+            const prestigeCost = getNextPrestigeCost(gameState.prestigeLevel);
+            const prestigeBtn = document.getElementById('prestigeBtn');
+            prestigeBtn.disabled = gameState.grams < prestigeCost;
+            if (!prestigeBtn.disabled) {
+                prestigeBtn.textContent = `Buy Max Prestige (${formatNum(prestigeCost)}g)`;
+            } else {
+                prestigeBtn.textContent = `Need ${formatNum(prestigeCost)}g`;
+            }
+            
+            // Update all shop items
+            renderShop();
+            
+            // Update player stats in Supabase (debounced)
+            debouncedUpdatePlayerStats();
+        }
+        
+        // Debounce function to prevent too many updates
+        let updateTimeout;
+        function debouncedUpdatePlayerStats() {
+            clearTimeout(updateTimeout);
+            updateTimeout = setTimeout(() => {
+                updatePlayerStats();
+            }, 2000); // Update every 2 seconds max
         }
 
         function renderShop() {
+            // Crew buttons
             document.getElementById('crewButtons').innerHTML = Object.keys(gameState.crew).map(id => {
                 const c = gameState.crew[id];
-                return `<div class="upgrade-item"><b>${id}</b><button onclick="buyCrew('${id}')">Hire (${formatNum(c.cost)}g)</button></div>`;
+                const canAfford = gameState.grams >= c.cost;
+                return `<div class="upgrade-item"><b>${id.charAt(0).toUpperCase() + id.slice(1)}</b><button onclick="buyCrew('${id}')" ${!canAfford ? 'disabled' : ''}>Hire (${formatNum(c.cost)}g)</button></div>`;
             }).join('');
+            
+            // Upgrades
             document.getElementById('shopList').innerHTML = upgrades.map((up, i) => {
                 const owned = gameState.upgrades.includes(up.id);
-                return `<div class="upgrade-item"><b>${up.name}</b><button onclick="buyUpgrade(${i})" ${owned ? 'disabled' : ''}>${owned ? 'OWNED' : 'Buy (' + formatNum(up.cost) + 'g)'}</button></div>`;
+                const canAfford = gameState.grams >= up.cost;
+                const disabled = owned || !canAfford;
+                return `<div class="upgrade-item"><b>${up.name}</b><span class="bonus-info">${up.desc}</span><button onclick="buyUpgrade(${i})" ${disabled ? 'disabled' : ''}>${owned ? 'OWNED' : canAfford ? 'Buy (' + formatNum(up.cost) + 'g)' : 'Need ' + formatNum(up.cost) + 'g'}</button></div>`;
             }).join('');
+            
+            // Strains
             document.getElementById('strainList').innerHTML = strains.map((st, i) => {
                 const owned = gameState.strainsOwned.includes(st.id);
-                return `<div class="upgrade-item"><b>${st.name}</b><button onclick="buyStrain(${i})" ${owned ? 'disabled' : ''}>${owned ? 'ACTIVE' : 'Buy (' + formatNum(st.cost) + 'g)'}</button></div>`;
+                const isActive = gameState.currentStrain === st.id;
+                const canAfford = gameState.grams >= st.cost;
+                const className = isActive ? 'upgrade-item active-strain' : 'upgrade-item';
+                const disabled = owned || !canAfford;
+                
+                let buttonText;
+                if (owned) {
+                    buttonText = isActive ? 'ACTIVE' : 'ACTIVATE';
+                } else {
+                    buttonText = canAfford ? 'Buy (' + formatNum(st.cost) + 'g)' : 'Need ' + formatNum(st.cost) + 'g';
+                }
+                
+                return `<div class="${className}"><b>${st.name}</b><span class="bonus-info">${st.desc}</span><button onclick="buyStrain(${i})" ${disabled ? 'disabled' : ''}>${buttonText}</button></div>`;
             }).join('');
         }
 
-        function buyUpgrade(i) {
+        async function buyUpgrade(i) {
             if(gameState.grams >= upgrades[i].cost) {
-                gameState.grams -= upgrades[i].cost; gameState.upgrades.push(upgrades[i].id);
+                gameState.grams -= upgrades[i].cost; 
+                gameState.upgrades.push(upgrades[i].id);
+                
                 if(upgrades[i].type === 'tap') gameState.multipliers.tap *= upgrades[i].bonus;
                 if(upgrades[i].type === 'auto') gameState.multipliers.auto *= upgrades[i].bonus;
-                renderShop(); updateUI();
+                
+                // Record purchase
+                await recordPurchase('upgrade', upgrades[i].name, upgrades[i].cost);
+                
+                updateUI();
             }
         }
 
-        function buyStrain(i) {
+        async function buyStrain(i) {
             if(gameState.grams >= strains[i].cost) {
-                gameState.grams -= strains[i].cost; gameState.strainsOwned.push(strains[i].id);
+                gameState.grams -= strains[i].cost; 
+                if (!gameState.strainsOwned.includes(strains[i].id)) {
+                    gameState.strainsOwned.push(strains[i].id);
+                }
+                gameState.currentStrain = strains[i].id;
                 gameState.multipliers.strain = strains[i].mult;
-                renderShop(); updateUI();
+                
+                // Record purchase
+                await recordPurchase('strain', strains[i].name, strains[i].cost);
+                showChatMessage(`System: ${gameState.playerName} unlocked ${strains[i].name}!`, 'system');
+                
+                updateUI();
             }
         }
 
-        function buyCrew(id) {
+        async function buyCrew(id) {
             if(gameState.grams >= gameState.crew[id].cost) {
-                gameState.grams -= gameState.crew[id].cost; gameState.crew[id].count++;
+                gameState.grams -= gameState.crew[id].cost; 
+                gameState.crew[id].count++;
                 gameState.crew[id].cost = Math.floor(gameState.crew[id].cost * 1.25);
-                renderShop(); updateUI();
+                
+                // Record purchase
+                await recordPurchase('crew', id, gameState.crew[id].cost);
+                
+                updateUI();
+            }
+        }
+
+        async function prestigeMax() {
+            const cost = getNextPrestigeCost(gameState.prestigeLevel);
+            if(gameState.grams >= cost) {
+                gameState.grams -= cost;
+                gameState.prestigeLevel++;
+                
+                // Record purchase
+                await recordPurchase('prestige', 'Prestige Level ' + gameState.prestigeLevel, cost);
+                showChatMessage(`System: ${gameState.playerName} reached Prestige Level ${gameState.prestigeLevel}!`, 'system');
+                
+                alert(`Prestige level ${gameState.prestigeLevel} achieved! Multiplier increased!`);
+                updateUI();
+            } else {
+                alert(`Need ${formatNum(cost)}g for next prestige!`);
             }
         }
 
@@ -216,15 +642,35 @@
             const totalMult = gameState.multipliers.strain * gameState.prestigeLevel * (1 + (gameState.level * 0.05)) * getDonationMult();
             const hps = (gameState.crew.trimmers.count * 1 + gameState.crew.growers.count * 5) * gameState.multipliers.auto * totalMult;
             gameState.grams += hps / 10;
-            if(gameState.exp >= getRequiredEXP(gameState.level)) { gameState.exp = 0; gameState.level++; }
-            updateUI(); setTimeout(gameLoop, 100);
+            gameState.totalHarvested += hps / 10;
+            
+            // Check for level up
+            if(gameState.exp >= getRequiredEXP(gameState.level)) { 
+                gameState.exp = 0; 
+                gameState.level++; 
+                showChatMessage(`System: ${gameState.playerName} reached Level ${gameState.level}!`, 'system');
+            }
+            
+            updateUI();
         }
 
-        function resetGame() { if(confirm("Wipe?")) { localStorage.clear(); location.reload(); } }
+        function resetGame() { 
+            if(confirm("Are you sure you want to wipe your save?")) { 
+                localStorage.clear(); 
+                location.reload(); 
+            } 
+        }
+
+        // Event listeners
         document.getElementById('clickArea').addEventListener('click', clickPlant);
-        setInterval(() => localStorage.setItem('cannaCultivatorSave', JSON.stringify(gameState)), 5000);
+        
+        // Auto-save every 5 seconds
+        setInterval(() => {
+            localStorage.setItem('cannaCultivatorSave', JSON.stringify(gameState));
+        }, 5000);
+        
+        // Initialize on load
         window.onload = init;
     </script>
 </body>
 </html>
-
