@@ -121,7 +121,6 @@
         // Real-time subscriptions
         let leaderboardSubscription = null;
         let chatSubscription = null;
-        let purchasesSubscription = null;
         
         function formatNum(num) {
             if (num < 1000) return Math.floor(num).toLocaleString();
@@ -204,8 +203,8 @@
                 // Load chat history
                 await loadChatHistory();
                 
-                // Load purchase history
-                await loadPurchases();
+                // Load donation count
+                await loadDonations();
                 
                 // Set up real-time subscriptions
                 setupRealtimeSubscriptions();
@@ -226,6 +225,7 @@
                         grams: gameState.grams,
                         level: gameState.level,
                         prestige_level: gameState.prestigeLevel,
+                        total_harvested: gameState.totalHarvested,
                         last_active: new Date().toISOString()
                     }, { onConflict: 'player_id' });
                     
@@ -242,10 +242,10 @@
                     .upsert({
                         player_id: playerId,
                         player_name: gameState.playerName,
-                        grams: gameState.grams,
+                        grams: Math.floor(gameState.grams),
                         level: gameState.level,
                         prestige_level: gameState.prestigeLevel,
-                        total_harvested: gameState.totalHarvested,
+                        total_harvested: Math.floor(gameState.totalHarvested),
                         last_active: new Date().toISOString()
                     }, { onConflict: 'player_id' });
                     
@@ -309,10 +309,10 @@
                 if (data && data.length > 0) {
                     const chatBox = document.getElementById('chat-box');
                     data.reverse().forEach(message => {
-                        const className = message.player_id === playerId ? 'user' : 'other';
                         if (message.player_id === 'system') {
                             chatBox.innerHTML += `<div class="chat-message system">${message.message}</div>`;
                         } else {
+                            const className = message.player_id === playerId ? 'user' : 'other';
                             chatBox.innerHTML += `<div class="chat-message ${className}"><b>${message.player_name}:</b> ${message.message}</div>`;
                         }
                     });
@@ -344,7 +344,16 @@
         function showChatMessage(message, type = 'system') {
             const chatBox = document.getElementById('chat-box');
             const className = type === 'system' ? 'system' : (type === 'user' ? 'user' : 'other');
-            chatBox.innerHTML += `<div class="chat-message ${className}">${message}</div>`;
+            
+            if (type === 'system') {
+                chatBox.innerHTML += `<div class="chat-message system">${message}</div>`;
+            } else if (type === 'user') {
+                chatBox.innerHTML += `<div class="chat-message user"><b>${gameState.playerName}:</b> ${message}</div>`;
+            } else {
+                // For other messages, we'll parse the HTML
+                chatBox.innerHTML += `<div class="chat-message other">${message}</div>`;
+            }
+            
             chatBox.scrollTop = chatBox.scrollHeight;
             
             // Limit messages to 50
@@ -354,25 +363,23 @@
             }
         }
         
-        async function loadPurchases() {
+        async function loadDonations() {
             try {
                 const { data, error } = await supabase
                     .from('purchases')
                     .select('*')
                     .eq('player_id', playerId)
-                    .order('created_at', { ascending: false })
-                    .limit(10);
+                    .eq('item_type', 'donation');
                     
                 if (error) throw error;
                 
                 // Update donations count from purchases
-                if (data && data.length > 0) {
-                    const donationPurchases = data.filter(p => p.item_type === 'donation');
-                    gameState.donations = donationPurchases.length;
+                if (data) {
+                    gameState.donations = data.length;
                     updateUI();
                 }
             } catch (error) {
-                console.error('Error loading purchases:', error);
+                console.error('Error loading donations:', error);
             }
         }
         
@@ -411,28 +418,8 @@
                     { event: 'INSERT', schema: 'public', table: 'chat' }, 
                     (payload) => {
                         const newMessage = payload.new;
-                        if (newMessage.player_id !== playerId) {
-                            if (newMessage.player_id === 'system') {
-                                showChatMessage(newMessage.message, 'system');
-                            } else {
-                                showChatMessage(`<b>${newMessage.player_name}:</b> ${newMessage.message}`, 'other');
-                            }
-                        }
-                    }
-                )
-                .subscribe();
-            
-            // Purchase updates (for this player only)
-            purchasesSubscription = supabase
-                .channel('purchase-updates')
-                .on('postgres_changes', 
-                    { event: 'INSERT', schema: 'public', table: 'purchases', filter: `player_id=eq.${playerId}` }, 
-                    (payload) => {
-                        const purchase = payload.new;
-                        if (purchase.item_type === 'donation') {
-                            gameState.donations++;
-                            updateUI();
-                            showChatMessage(`System: ${gameState.playerName} purchased a permanent x20 boost!`, 'system');
+                        if (newMessage.player_id !== playerId && newMessage.player_id !== 'system') {
+                            showChatMessage(`<b>${newMessage.player_name}:</b> ${newMessage.message}`, 'other');
                         }
                     }
                 )
@@ -465,8 +452,12 @@
                             gameState.donations++;
                             updateUI();
                             
-                            // Show system message
-                            showChatMessage('System: Thank you for your donation! Permanent x20 boost applied!', 'system');
+                            // Send system message to chat
+                            await supabase.from('chat').insert({
+                                player_id: 'system',
+                                player_name: 'System',
+                                message: `${gameState.playerName} purchased a permanent x20 boost!`
+                            });
                             
                             // Alert the user
                             alert('Thank you for your donation! Permanent x20 boost applied!');
@@ -602,7 +593,13 @@
                 
                 // Record purchase
                 await recordPurchase('strain', strains[i].name, strains[i].cost);
-                showChatMessage(`System: ${gameState.playerName} unlocked ${strains[i].name}!`, 'system');
+                
+                // Send system message
+                await supabase.from('chat').insert({
+                    player_id: 'system',
+                    player_name: 'System',
+                    message: `${gameState.playerName} unlocked ${strains[i].name}!`
+                });
                 
                 updateUI();
             }
@@ -629,7 +626,13 @@
                 
                 // Record purchase
                 await recordPurchase('prestige', 'Prestige Level ' + gameState.prestigeLevel, cost);
-                showChatMessage(`System: ${gameState.playerName} reached Prestige Level ${gameState.prestigeLevel}!`, 'system');
+                
+                // Send system message
+                await supabase.from('chat').insert({
+                    player_id: 'system',
+                    player_name: 'System',
+                    message: `${gameState.playerName} reached Prestige Level ${gameState.prestigeLevel}!`
+                });
                 
                 alert(`Prestige level ${gameState.prestigeLevel} achieved! Multiplier increased!`);
                 updateUI();
@@ -638,7 +641,7 @@
             }
         }
 
-        function gameLoop() {
+        async function gameLoop() {
             const totalMult = gameState.multipliers.strain * gameState.prestigeLevel * (1 + (gameState.level * 0.05)) * getDonationMult();
             const hps = (gameState.crew.trimmers.count * 1 + gameState.crew.growers.count * 5) * gameState.multipliers.auto * totalMult;
             gameState.grams += hps / 10;
@@ -648,14 +651,26 @@
             if(gameState.exp >= getRequiredEXP(gameState.level)) { 
                 gameState.exp = 0; 
                 gameState.level++; 
-                showChatMessage(`System: ${gameState.playerName} reached Level ${gameState.level}!`, 'system');
+                
+                // Send system message for level up
+                if (gameState.level % 5 === 0) { // Only announce every 5 levels to avoid spam
+                    try {
+                        await supabase.from('chat').insert({
+                            player_id: 'system',
+                            player_name: 'System',
+                            message: `${gameState.playerName} reached Level ${gameState.level}!`
+                        });
+                    } catch (error) {
+                        console.error('Error sending level up message:', error);
+                    }
+                }
             }
             
             updateUI();
         }
 
         function resetGame() { 
-            if(confirm("Are you sure you want to wipe your save?")) { 
+            if(confirm("Are you sure you want to wipe your save? This will delete your local progress but NOT your Supabase data.")) { 
                 localStorage.clear(); 
                 location.reload(); 
             } 
