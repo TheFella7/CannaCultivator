@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Canna Cultivator - Original Restoration</title>
+    <title>Canna Cultivator - Final Restoration</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://www.paypal.com/sdk/js?client-id=sb&currency=GBP"></script>
     <style>
@@ -29,7 +28,9 @@
         .lb-stats { display: flex; justify-content: space-between; font-size: 0.85em; opacity: 0.9; }
         .upgrade-item { background: rgba(60, 90, 40, 0.4); padding: 12px; margin: 8px 0; border-radius: 10px; border: 1px solid #4caf50; }
         .prestige-box { background: rgba(118, 255, 3, 0.1); border: 2px dashed #76ff03; padding: 15px; margin-top: 15px; border-radius: 10px; text-align: center; }
-        button { background: linear-gradient(to bottom, #4caf50, #2e7d32); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 5px; }
+        .paypal-container { margin-top: 15px; padding: 12px; background: rgba(0, 0, 0, 0.4); border-radius: 12px; border: 2px solid #ffc107; }
+        .price-badge { display: inline-block; background: #ffc107; color: #000; padding: 2px 8px; border-radius: 5px; font-weight: bold; font-size: 1.1em; margin: 5px 0; }
+        button { background: linear-gradient(to bottom, #4caf50, #2e7d32); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 5px; transition: 0.2s; }
         button:disabled { opacity: 0.4; cursor: not-allowed; background: #444; }
         .purchased-badge { color: #76ff03; font-weight: bold; font-style: italic; font-size: 0.9em; }
         #chat-box { height: 150px; background: rgba(0,0,0,0.3); border-radius: 5px; margin-top: 10px; padding: 5px; overflow-y: auto; font-size: 0.8em; border: 1px solid #388e3c; }
@@ -58,6 +59,13 @@
                 <div class="prestige-box">
                     <div style="color:#76ff03; font-weight: bold;">Mastery: x<span id="prestigeMult">1</span></div>
                     <button onclick="buyMaxPrestige()">Buy Max Mastery (Cost: <span id="pCostDisplay">10k</span>g)</button>
+                    
+                    <div class="paypal-container">
+                        <p style="color:#fff; font-weight: bold;">PERMANENT x20 BOOST (STACKABLE)</p>
+                        <div class="price-badge">ONLY £4.99</div>
+                        <p style="color:#aed581; font-size: 0.8em; margin-bottom: 10px;">Current Donation Stacks: <span id="stackCount">0</span></p>
+                        <div id="paypal-button-container"></div>
+                    </div>
                 </div>
             </div>
 
@@ -91,7 +99,7 @@
         const sb = supabase.createClient(SB_URL, SB_KEY);
 
         let state = {
-            name: "", grams: 0, level: 1, exp: 0, prestige: 1,
+            name: "", grams: 0, level: 1, exp: 0, prestige: 1, donations: 0,
             crew: { trimmers: { n: 0, c: 20, p: 1 }, growers: { n: 0, c: 150, p: 5 } },
             upgrades: [], strains: [] 
         };
@@ -116,7 +124,8 @@
                 const u = staticData.upgrades.find(x => x.id === id);
                 if(u) { if(u.type === 'tap') tap *= u.x; else auto *= u.x; }
             });
-            const global = sMult * state.prestige * (1 + (state.level * 0.05));
+            const donationMult = 1 + (state.donations * 20);
+            const global = sMult * state.prestige * (1 + (state.level * 0.05)) * donationMult;
             return { tap: tap * global, auto: auto * global };
         }
 
@@ -128,6 +137,7 @@
             document.getElementById('hpsDisplay').innerText = hps.toLocaleString() + "g/sec";
             document.getElementById('hpcDisplay').innerText = m.tap.toLocaleString() + "g/click";
             document.getElementById('prestigeMult').innerText = state.prestige;
+            document.getElementById('stackCount').innerText = state.donations;
             document.getElementById('pCostDisplay').innerText = (10000 * (state.prestige ** 2)).toLocaleString();
 
             const req = (state.level ** 2) * 1000;
@@ -135,17 +145,14 @@
             document.getElementById('expBar').style.width = `${(state.exp / req) * 100}%`;
             document.getElementById('expText').innerText = `${Math.floor(state.exp).toLocaleString()} / ${req.toLocaleString()} EXP`;
 
-            // Render Crew
             document.getElementById('crewButtons').innerHTML = Object.keys(state.crew).map(id => `
                 <div class="upgrade-item"><b>${id.toUpperCase()}</b> (${state.crew[id].n})<button onclick="buyMaxCrew('${id}')" ${state.grams < state.crew[id].c ? 'disabled' : ''}>Buy Max: ${state.crew[id].c}g</button></div>
             `).join('');
 
-            // Render Strains (Single Purchase)
             document.getElementById('strainList').innerHTML = staticData.strains.map(s => `
                 <div class="upgrade-item"><b>${s.name} (x${s.x})</b>${state.strains.includes(s.id) ? '<br><span class="purchased-badge">PURCHASED</span>' : `<button onclick="buyStrain('${s.id}')" ${state.grams < s.cost ? 'disabled' : ''}>Buy Once: ${s.cost}g</button>`}</div>
             `).join('');
 
-            // Render Supplies
             document.getElementById('shopList').innerHTML = staticData.upgrades.map(u => `
                 <div class="upgrade-item"><b>${u.name}</b>${state.upgrades.includes(u.id) ? '<br><span class="purchased-badge">OWNED</span>' : `<button onclick="buyUpgrade('${u.id}')" ${state.grams < u.cost ? 'disabled' : ''}>Buy: ${u.cost}g</button>`}</div>
             `).join('');
@@ -193,6 +200,15 @@
             const { data } = await sb.from('leaderboard').select('game_state').eq('player_name', state.name).single();
             if(data) state = data.game_state;
 
+            // PayPal Integration
+            paypal.Buttons({
+                createOrder: (data, actions) => actions.order.create({ purchase_units: [{ amount: { value: '4.99' } }] }),
+                onApprove: (data, actions) => actions.order.capture().then(() => {
+                    state.donations++;
+                    updateUI();
+                })
+            }).render('#paypal-button-container');
+
             sb.channel('chat').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, p => {
                 const box = document.getElementById('chat-box');
                 box.innerHTML += `<div><b>${p.new.player_name}:</b> ${p.new.message_text}</div>`;
@@ -209,12 +225,12 @@
             }, 100);
 
             setInterval(async () => {
-                await sb.from('leaderboard').upsert({ player_name: state.name, grams: Math.floor(state.grams), game_state: state, last_active: new Date() });
+                await sb.from('leaderboard').upsert({ player_name: state.name, grams: Math.floor(state.grams), game_state: state, player_level: state.level, last_active: new Date() });
             }, 1000);
 
             setInterval(async () => {
                 const { data } = await sb.from('leaderboard').select('*').order('grams', {ascending:false}).limit(5);
-                if(data) document.getElementById('leaderboard').innerHTML = data.map((p,i)=>`<div class="leaderboard-item"><b>#${i+1} ${p.player_name}</b><div class="lb-stats"><span>Lvl ${p.player_level}</span><span>${Math.floor(p.grams).toLocaleString()}g</span></div></div>`).join('');
+                if(data) document.getElementById('leaderboard').innerHTML = data.map((p,i)=>`<div class="leaderboard-item ${p.player_name === state.name ? 'you-row' : ''}"><b>#${i+1} ${p.player_name}</b><div class="lb-stats"><span>Lvl ${p.player_level}</span><span>${Math.floor(p.grams).toLocaleString()}g</span></div></div>`).join('');
             }, 5000);
 
             document.getElementById('clickArea').onclick = () => {
