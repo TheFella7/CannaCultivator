@@ -3,15 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Canna Cultivator - EXP Fixed</title>
+    <title>Canna Cultivator - High Visibility</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://www.paypal.com/sdk/js?client-id=AZawPulf_LA1GNqlqUE_L6PC4UqJsan33_c5L9wEcOLTRK1itpzK1QrSwueuFyPlbaEV7U0JejX_Vd70&currency=GBP"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-tap-highlight-color: transparent; }
-        body { background: linear-gradient(135deg, #1a2e0e 0%, #2d5016 100%); color: #f0f7da; min-height: 100vh; padding: 10px; }
+        body { background: linear-gradient(135deg, #1a2e0e 0%, #2d5016 100%); color: #f0f7da; min-height: 100vh; padding: 0 10px 10px 10px; }
+        
+        /* NEW HIGH VISIBILITY STATUS BAR */
+        .top-status-bar {
+            background: rgba(0, 0, 0, 0.7);
+            border-bottom: 2px solid #4caf50;
+            margin: 0 -10px 15px -10px;
+            padding: 8px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.9rem;
+            color: #76ff03;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            font-weight: bold;
+        }
+        .status-item { display: flex; align-items: center; gap: 5px; }
+
         .container { max-width: 1200px; margin: 0 auto; background: rgba(20, 30, 15, 0.9); border-radius: 20px; padding: 20px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); border: 3px solid #4caf50; }
-        .header { text-align: center; padding: 10px; border-bottom: 3px solid #4caf50; margin-bottom: 20px; position: relative; }
-        .live-info { position: absolute; top: 5px; right: 15px; text-align: right; font-size: 0.8em; color: #aed581; }
+        .header { text-align: center; padding: 5px; border-bottom: 3px solid #4caf50; margin-bottom: 20px; }
         .game-title { font-size: clamp(1.8rem, 5vw, 3rem); color: #76ff03; text-shadow: 2px 2px 0 #1b3012; margin-bottom: 5px; }
         .exp-container { width: 100%; background: #1b3012; height: 20px; border-radius: 10px; margin: 10px 0; overflow: hidden; border: 1px solid #4caf50; }
         .exp-bar { height: 100%; background: linear-gradient(90deg, #76ff03, #4caf50); width: 0%; transition: width 0.3s; }
@@ -36,13 +52,14 @@
     </style>
 </head>
 <body>
+    <div class="top-status-bar">
+        <div class="status-item">📅 <span id="liveDate">01/01/2026</span></div>
+        <div class="status-item">🕒 <span id="liveClock">00:00:00</span></div>
+        <div class="status-item">👥 <span id="onlineCount">1</span> Online</div>
+    </div>
+
     <div class="container">
         <div class="header">
-            <div class="live-info">
-                <div id="liveClock">00:00:00</div>
-                <div id="liveDate">01/01/2026</div>
-                <div style="color:#76ff03">Online: <span id="onlineCount">1</span></div>
-            </div>
             <h1 class="game-title">🌿 Canna Cultivator</h1>
             <p>Welcome, <span id="playerNameDisplay" style="color:#76ff03">...</span>!</p>
             <div style="margin-top: 10px;">
@@ -231,27 +248,18 @@
                 onApprove: (d, a) => a.order.capture().then(() => { state.donations++; updateUI(); })
             }).render('#paypal-button-container');
 
-            // --- MAIN GAME LOOP ---
             setInterval(() => {
                 const m = getMults();
                 const hps = (state.crew.trimmers.n * 1 + state.crew.growers.n * 5) * m.auto;
-                
-                // 1. ADD GRAMS
                 state.grams += hps / 10;
-                
-                // 2. ADD AUTO EXP (Fixed: Scales with production and prestige)
-                // We give 10% of your production as EXP per second
                 const autoExp = (hps / 10) * state.prestige;
                 state.exp += autoExp;
-
-                // 3. LEVEL UP CHECK
                 const req = (Math.pow(state.level, 3)) * 1500;
                 if(state.exp >= req) { state.exp -= req; state.level++; }
-                
                 updateUI();
             }, 100);
 
-            // Time & Online Count Logic
+            // Updated Visual Timers
             setInterval(() => {
                 const now = new Date();
                 document.getElementById('liveClock').innerText = now.toLocaleTimeString();
@@ -278,7 +286,7 @@
 
             document.getElementById('clickArea').onclick = () => { 
                 state.grams += getMults().tap; 
-                state.exp += (15 * state.prestige); // Manual click EXP
+                state.exp += (15 * state.prestige);
                 updateUI(); 
             };
             
@@ -299,4 +307,3 @@
     </script>
 </body>
 </html>
-
