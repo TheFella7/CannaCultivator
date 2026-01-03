@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Canna Cultivator - Live</title>
     <script src="https://www.paypal.com/sdk/js?client-id=sb&currency=GBP"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: linear-gradient(135deg, #1a2e0e 0%, #2d5016 100%); color: #f0f7da; min-height: 100vh; padding: 10px; }
@@ -104,24 +103,6 @@
     </div>
 
     <script>
-        // Supabase Configuration
-        const SUPABASE_URL = 'https://klcqhrajnhegzmzfdzji.supabase.co';
-        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsY3FocmFqbmhlZ3ptemZkemppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0NTk1MjcsImV4cCI6MjA4MzAzNTUyN30.DhESHsa5cmHTvetWtEIBqGQHfiXml4eOpUteC8A-LAU';
-        
-        // Initialize Supabase
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        
-        // Player ID for tracking
-        let playerId = localStorage.getItem('playerId');
-        if (!playerId) {
-            playerId = 'player_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-            localStorage.setItem('playerId', playerId);
-        }
-        
-        // Real-time subscriptions
-        let leaderboardSubscription = null;
-        let chatSubscription = null;
-        
         function formatNum(num) {
             if (num < 1000) return Math.floor(num).toLocaleString();
             const suffixes = ["", "k", "m", "b", "t"];
@@ -154,7 +135,7 @@
         function getNextPrestigeCost(level) { return 10000 * (level ** 2); }
         function getRequiredEXP(level) { return (level ** 2) * 1000; }
 
-        async function init() {
+        function init() {
             const saved = localStorage.getItem('cannaCultivatorSave');
             if(saved) {
                 const loaded = JSON.parse(saved);
@@ -174,256 +155,21 @@
             renderShop(); 
             updateUI();
             
-            // Initialize Supabase
-            await initSupabase();
-            
             // Initialize PayPal after a short delay
             setTimeout(initPayPal, 500);
             
             // Start game loop
             setInterval(gameLoop, 100);
             
-            // Setup chat input
+            // Setup chat input (local only for now)
             document.getElementById('chatInput').addEventListener('keypress', function(e) {
                 if(e.key === 'Enter' && this.value.trim()) {
-                    sendChatMessage(this.value.trim());
+                    const chatBox = document.getElementById('chat-box');
+                    chatBox.innerHTML += `<div class="chat-message user"><b>${gameState.playerName}:</b> ${this.value}</div>`;
+                    chatBox.scrollTop = chatBox.scrollHeight;
                     this.value = '';
                 }
             });
-        }
-        
-        async function initSupabase() {
-            try {
-                // First, register or update player
-                await registerPlayer();
-                
-                // Load leaderboard
-                await loadLeaderboard();
-                
-                // Load chat history
-                await loadChatHistory();
-                
-                // Load donation count
-                await loadDonations();
-                
-                // Set up real-time subscriptions
-                setupRealtimeSubscriptions();
-                
-            } catch (error) {
-                console.error('Supabase initialization error:', error);
-                showChatMessage('System: Leaderboard offline - using local data', 'system');
-            }
-        }
-        
-        async function registerPlayer() {
-            try {
-                const { data, error } = await supabase
-                    .from('players')
-                    .upsert({
-                        player_id: playerId,
-                        player_name: gameState.playerName,
-                        grams: gameState.grams,
-                        level: gameState.level,
-                        prestige_level: gameState.prestigeLevel,
-                        total_harvested: gameState.totalHarvested,
-                        last_active: new Date().toISOString()
-                    }, { onConflict: 'player_id' });
-                    
-                if (error) throw error;
-            } catch (error) {
-                console.error('Error registering player:', error);
-            }
-        }
-        
-        async function updatePlayerStats() {
-            try {
-                const { error } = await supabase
-                    .from('players')
-                    .upsert({
-                        player_id: playerId,
-                        player_name: gameState.playerName,
-                        grams: Math.floor(gameState.grams),
-                        level: gameState.level,
-                        prestige_level: gameState.prestigeLevel,
-                        total_harvested: Math.floor(gameState.totalHarvested),
-                        last_active: new Date().toISOString()
-                    }, { onConflict: 'player_id' });
-                    
-                if (error) throw error;
-            } catch (error) {
-                console.error('Error updating player stats:', error);
-            }
-        }
-        
-        async function loadLeaderboard() {
-            try {
-                const { data, error } = await supabase
-                    .from('players')
-                    .select('player_id, player_name, grams, level, prestige_level')
-                    .order('grams', { ascending: false })
-                    .limit(10);
-                    
-                if (error) throw error;
-                
-                if (data && data.length > 0) {
-                    updateLeaderboardUI(data);
-                }
-            } catch (error) {
-                console.error('Error loading leaderboard:', error);
-            }
-        }
-        
-        function updateLeaderboardUI(players) {
-            const leaderboardDiv = document.getElementById('leaderboard');
-            let html = '';
-            
-            players.forEach((player, index) => {
-                const isYou = player.player_id === playerId;
-                const rank = index + 1;
-                const rowClass = isYou ? 'leaderboard-item you-row' : 'leaderboard-item';
-                
-                html += `
-                    <div class="${rowClass}">
-                        <b>#${rank} ${player.player_name.toUpperCase()}</b>
-                        <div class="lb-stats">
-                            <span>Lvl ${player.level}</span>
-                            <span>${formatNum(player.grams)}g</span>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            leaderboardDiv.innerHTML = html;
-        }
-        
-        async function loadChatHistory() {
-            try {
-                const { data, error } = await supabase
-                    .from('chat')
-                    .select('*')
-                    .order('created_at', { ascending: false })
-                    .limit(20);
-                    
-                if (error) throw error;
-                
-                if (data && data.length > 0) {
-                    const chatBox = document.getElementById('chat-box');
-                    data.reverse().forEach(message => {
-                        if (message.player_id === 'system') {
-                            chatBox.innerHTML += `<div class="chat-message system">${message.message}</div>`;
-                        } else {
-                            const className = message.player_id === playerId ? 'user' : 'other';
-                            chatBox.innerHTML += `<div class="chat-message ${className}"><b>${message.player_name}:</b> ${message.message}</div>`;
-                        }
-                    });
-                    chatBox.scrollTop = chatBox.scrollHeight;
-                }
-            } catch (error) {
-                console.error('Error loading chat history:', error);
-            }
-        }
-        
-        async function sendChatMessage(message) {
-            try {
-                const { error } = await supabase
-                    .from('chat')
-                    .insert({
-                        player_id: playerId,
-                        player_name: gameState.playerName,
-                        message: message
-                    });
-                    
-                if (error) throw error;
-            } catch (error) {
-                console.error('Error sending chat message:', error);
-                // Fallback: show message locally
-                showChatMessage(`${gameState.playerName}: ${message}`, 'user');
-            }
-        }
-        
-        function showChatMessage(message, type = 'system') {
-            const chatBox = document.getElementById('chat-box');
-            const className = type === 'system' ? 'system' : (type === 'user' ? 'user' : 'other');
-            
-            if (type === 'system') {
-                chatBox.innerHTML += `<div class="chat-message system">${message}</div>`;
-            } else if (type === 'user') {
-                chatBox.innerHTML += `<div class="chat-message user"><b>${gameState.playerName}:</b> ${message}</div>`;
-            } else {
-                // For other messages, we'll parse the HTML
-                chatBox.innerHTML += `<div class="chat-message other">${message}</div>`;
-            }
-            
-            chatBox.scrollTop = chatBox.scrollHeight;
-            
-            // Limit messages to 50
-            const messages = chatBox.querySelectorAll('.chat-message');
-            if (messages.length > 50) {
-                messages[0].remove();
-            }
-        }
-        
-        async function loadDonations() {
-            try {
-                const { data, error } = await supabase
-                    .from('purchases')
-                    .select('*')
-                    .eq('player_id', playerId)
-                    .eq('item_type', 'donation');
-                    
-                if (error) throw error;
-                
-                // Update donations count from purchases
-                if (data) {
-                    gameState.donations = data.length;
-                    updateUI();
-                }
-            } catch (error) {
-                console.error('Error loading donations:', error);
-            }
-        }
-        
-        async function recordPurchase(itemType, itemName, itemCost) {
-            try {
-                const { error } = await supabase
-                    .from('purchases')
-                    .insert({
-                        player_id: playerId,
-                        player_name: gameState.playerName,
-                        item_type: itemType,
-                        item_name: itemName,
-                        item_cost: itemCost
-                    });
-                    
-                if (error) throw error;
-            } catch (error) {
-                console.error('Error recording purchase:', error);
-            }
-        }
-        
-        function setupRealtimeSubscriptions() {
-            // Leaderboard updates
-            leaderboardSubscription = supabase
-                .channel('leaderboard-updates')
-                .on('postgres_changes', 
-                    { event: '*', schema: 'public', table: 'players' }, 
-                    () => loadLeaderboard()
-                )
-                .subscribe();
-            
-            // Chat updates
-            chatSubscription = supabase
-                .channel('chat-updates')
-                .on('postgres_changes', 
-                    { event: 'INSERT', schema: 'public', table: 'chat' }, 
-                    (payload) => {
-                        const newMessage = payload.new;
-                        if (newMessage.player_id !== playerId && newMessage.player_id !== 'system') {
-                            showChatMessage(`<b>${newMessage.player_name}:</b> ${newMessage.message}`, 'other');
-                        }
-                    }
-                )
-                .subscribe();
         }
 
         function initPayPal() {
@@ -443,24 +189,16 @@
                             }]
                         });
                     },
-                    onApprove: async function(data, actions) {
-                        return actions.order.capture().then(async function(details) {
-                            // Record the purchase in Supabase
-                            await recordPurchase('donation', 'Permanent x20 Boost', 4.99);
-                            
-                            // Update local state
+                    onApprove: function(data, actions) {
+                        return actions.order.capture().then(function(details) {
                             gameState.donations++;
                             updateUI();
-                            
-                            // Send system message to chat
-                            await supabase.from('chat').insert({
-                                player_id: 'system',
-                                player_name: 'System',
-                                message: `${gameState.playerName} purchased a permanent x20 boost!`
-                            });
-                            
-                            // Alert the user
                             alert('Thank you for your donation! Permanent x20 boost applied!');
+                            
+                            // Show in chat
+                            const chatBox = document.getElementById('chat-box');
+                            chatBox.innerHTML += `<div class="chat-message system">System: ${gameState.playerName} purchased a permanent x20 boost!</div>`;
+                            chatBox.scrollTop = chatBox.scrollHeight;
                         });
                     }
                 }).render('#paypal-button-container');
@@ -506,6 +244,9 @@
             document.getElementById('expBar').style.width = `${(gameState.exp / reqExp) * 100}%`;
             document.getElementById('expText').innerText = `${formatNum(gameState.exp)} / ${formatNum(reqExp)} EXP`;
             
+            // Update leaderboard (local only)
+            document.getElementById('leaderboard').innerHTML = `<div class="leaderboard-item you-row"><b>#1 ${gameState.playerName.toUpperCase()}</b><div class="lb-stats"><span>Lvl ${gameState.level}</span><span>${formatNum(gameState.grams)}g</span></div></div>`;
+            
             // Update prestige button state
             const prestigeCost = getNextPrestigeCost(gameState.prestigeLevel);
             const prestigeBtn = document.getElementById('prestigeBtn');
@@ -518,18 +259,6 @@
             
             // Update all shop items
             renderShop();
-            
-            // Update player stats in Supabase (debounced)
-            debouncedUpdatePlayerStats();
-        }
-        
-        // Debounce function to prevent too many updates
-        let updateTimeout;
-        function debouncedUpdatePlayerStats() {
-            clearTimeout(updateTimeout);
-            updateTimeout = setTimeout(() => {
-                updatePlayerStats();
-            }, 2000); // Update every 2 seconds max
         }
 
         function renderShop() {
@@ -567,7 +296,7 @@
             }).join('');
         }
 
-        async function buyUpgrade(i) {
+        function buyUpgrade(i) {
             if(gameState.grams >= upgrades[i].cost) {
                 gameState.grams -= upgrades[i].cost; 
                 gameState.upgrades.push(upgrades[i].id);
@@ -575,14 +304,16 @@
                 if(upgrades[i].type === 'tap') gameState.multipliers.tap *= upgrades[i].bonus;
                 if(upgrades[i].type === 'auto') gameState.multipliers.auto *= upgrades[i].bonus;
                 
-                // Record purchase
-                await recordPurchase('upgrade', upgrades[i].name, upgrades[i].cost);
+                // Show in chat
+                const chatBox = document.getElementById('chat-box');
+                chatBox.innerHTML += `<div class="chat-message system">System: Purchased ${upgrades[i].name}!</div>`;
+                chatBox.scrollTop = chatBox.scrollHeight;
                 
                 updateUI();
             }
         }
 
-        async function buyStrain(i) {
+        function buyStrain(i) {
             if(gameState.grams >= strains[i].cost) {
                 gameState.grams -= strains[i].cost; 
                 if (!gameState.strainsOwned.includes(strains[i].id)) {
@@ -591,48 +322,41 @@
                 gameState.currentStrain = strains[i].id;
                 gameState.multipliers.strain = strains[i].mult;
                 
-                // Record purchase
-                await recordPurchase('strain', strains[i].name, strains[i].cost);
-                
-                // Send system message
-                await supabase.from('chat').insert({
-                    player_id: 'system',
-                    player_name: 'System',
-                    message: `${gameState.playerName} unlocked ${strains[i].name}!`
-                });
+                // Show in chat
+                const chatBox = document.getElementById('chat-box');
+                chatBox.innerHTML += `<div class="chat-message system">System: Unlocked ${strains[i].name}!</div>`;
+                chatBox.scrollTop = chatBox.scrollHeight;
                 
                 updateUI();
             }
         }
 
-        async function buyCrew(id) {
+        function buyCrew(id) {
             if(gameState.grams >= gameState.crew[id].cost) {
                 gameState.grams -= gameState.crew[id].cost; 
                 gameState.crew[id].count++;
                 gameState.crew[id].cost = Math.floor(gameState.crew[id].cost * 1.25);
                 
-                // Record purchase
-                await recordPurchase('crew', id, gameState.crew[id].cost);
+                // Show in chat
+                const chatBox = document.getElementById('chat-box');
+                const crewName = id.charAt(0).toUpperCase() + id.slice(1);
+                chatBox.innerHTML += `<div class="chat-message system">System: Hired a ${crewName}!</div>`;
+                chatBox.scrollTop = chatBox.scrollHeight;
                 
                 updateUI();
             }
         }
 
-        async function prestigeMax() {
+        function prestigeMax() {
             const cost = getNextPrestigeCost(gameState.prestigeLevel);
             if(gameState.grams >= cost) {
                 gameState.grams -= cost;
                 gameState.prestigeLevel++;
                 
-                // Record purchase
-                await recordPurchase('prestige', 'Prestige Level ' + gameState.prestigeLevel, cost);
-                
-                // Send system message
-                await supabase.from('chat').insert({
-                    player_id: 'system',
-                    player_name: 'System',
-                    message: `${gameState.playerName} reached Prestige Level ${gameState.prestigeLevel}!`
-                });
+                // Show in chat
+                const chatBox = document.getElementById('chat-box');
+                chatBox.innerHTML += `<div class="chat-message system">System: Reached Prestige Level ${gameState.prestigeLevel}!</div>`;
+                chatBox.scrollTop = chatBox.scrollHeight;
                 
                 alert(`Prestige level ${gameState.prestigeLevel} achieved! Multiplier increased!`);
                 updateUI();
@@ -641,7 +365,7 @@
             }
         }
 
-        async function gameLoop() {
+        function gameLoop() {
             const totalMult = gameState.multipliers.strain * gameState.prestigeLevel * (1 + (gameState.level * 0.05)) * getDonationMult();
             const hps = (gameState.crew.trimmers.count * 1 + gameState.crew.growers.count * 5) * gameState.multipliers.auto * totalMult;
             gameState.grams += hps / 10;
@@ -652,17 +376,11 @@
                 gameState.exp = 0; 
                 gameState.level++; 
                 
-                // Send system message for level up
-                if (gameState.level % 5 === 0) { // Only announce every 5 levels to avoid spam
-                    try {
-                        await supabase.from('chat').insert({
-                            player_id: 'system',
-                            player_name: 'System',
-                            message: `${gameState.playerName} reached Level ${gameState.level}!`
-                        });
-                    } catch (error) {
-                        console.error('Error sending level up message:', error);
-                    }
+                // Show level up message in chat
+                if (gameState.level % 5 === 0) {
+                    const chatBox = document.getElementById('chat-box');
+                    chatBox.innerHTML += `<div class="chat-message system">System: Reached Level ${gameState.level}!</div>`;
+                    chatBox.scrollTop = chatBox.scrollHeight;
                 }
             }
             
@@ -670,7 +388,7 @@
         }
 
         function resetGame() { 
-            if(confirm("Are you sure you want to wipe your save? This will delete your local progress but NOT your Supabase data.")) { 
+            if(confirm("Are you sure you want to wipe your save?")) { 
                 localStorage.clear(); 
                 location.reload(); 
             } 
