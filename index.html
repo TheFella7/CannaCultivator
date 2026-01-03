@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Canna Cultivator - Live Edition</title>
-    <script src="https://www.paypal.com/sdk/js?client-id=sb&currency=GBP"></script>
+    <script src="https://www.paypal.com/sdk/js?client-id=AZawPulf_LA1GNqlqUE_L6PC4UqJsan33_c5L9wEcOLTRK1itpzK1QrSwueuFyPlbaEV7U0JejX_Vd70&currency=GBP"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
     <style>
@@ -98,10 +98,10 @@
     </div>
 
     <script>
-        // --- SUPABASE CONFIG ---
-        const SB_URL = 'YOUR_SUPABASE_URL';
-        const SB_KEY = 'YOUR_SUPABASE_ANON_KEY';
-        const supabase = libsupabase.createClient(SB_URL, SB_KEY);
+        // --- UPDATED SUPABASE CONFIG ---
+        const SB_URL = 'https://klcqhrajnhegzmzfdzji.supabase.co';
+        const SB_KEY = 'sb_publishable_ehwpGN04Xw43OOFDG72Gpg_J0DZub4G';
+        const supabase = supabase.createClient(SB_URL, SB_KEY);
 
         function formatNum(num) {
             if (num < 1000) return Math.floor(num).toLocaleString();
@@ -143,11 +143,10 @@
             gameLoop();
             initPayPal();
             
-            // Start Live Services
             fetchLeaderboard();
             listenToChat();
-            setInterval(syncPlayerData, 10000); // Sync to SQL every 10s
-            setInterval(fetchLeaderboard, 15000); // Refresh board every 15s
+            setInterval(syncPlayerData, 10000); 
+            setInterval(fetchLeaderboard, 15000); 
         }
 
         async function syncPlayerData() {
@@ -161,15 +160,17 @@
         }
 
         async function fetchLeaderboard() {
-            const { data } = await supabase.from('players').select('*').order('total_grams', { ascending: false }).limit(10);
-            if(data) {
-                document.getElementById('leaderboard').innerHTML = data.map((p, i) => `
-                    <div class="leaderboard-item ${p.player_name === gameState.playerName ? 'you-row' : ''}">
-                        <b>#${i+1} ${p.player_name.toUpperCase()}</b>
-                        <div class="lb-stats"><span>Lvl ${p.player_level}</span><span>${formatNum(p.total_grams)}g</span></div>
-                    </div>
-                `).join('');
-            }
+            try {
+                const { data } = await supabase.from('players').select('*').order('total_grams', { ascending: false }).limit(10);
+                if(data) {
+                    document.getElementById('leaderboard').innerHTML = data.map((p, i) => `
+                        <div class="leaderboard-item ${p.player_name === gameState.playerName ? 'you-row' : ''}">
+                            <b>#${i+1} ${p.player_name.toUpperCase()}</b>
+                            <div class="lb-stats"><span>Lvl ${p.player_level}</span><span>${formatNum(p.total_grams)}g</span></div>
+                        </div>
+                    `).join('');
+                }
+            } catch (e) { console.log("Leaderboard sync error."); }
         }
 
         function listenToChat() {
@@ -189,13 +190,12 @@
 
         function initPayPal() {
             paypal.Buttons({
-                createOrder: (data, actions) => actions.order.create({ purchase_units: [{ amount: { value: '4.99' }, payee: { email_address: 'mrliamc90@gmail.com' } }] }),
+                createOrder: (data, actions) => actions.order.create({ purchase_units: [{ amount: { value: '4.99' } }] }),
                 onApprove: (data, actions) => actions.order.capture().then(async (details) => { 
                     gameState.donations++; 
                     updateUI(); 
-                    // Log to SQL
-                    const { data: p } = await supabase.from('players').select('player_id').eq('player_name', gameState.playerName).single();
-                    if(p) await supabase.from('purchases').insert([{ player_id: p.player_id, paypal_order_id: details.id }]);
+                    const { data: p } = await supabase.from('players').select('id').eq('player_name', gameState.playerName).single();
+                    if(p) await supabase.from('purchases').insert([{ player_id: p.id, paypal_order_id: details.id }]);
                 })
             }).render('#paypal-button-container');
         }
@@ -224,6 +224,7 @@
             const reqExp = getRequiredEXP(gameState.level);
             document.getElementById('levelDisplay').innerText = gameState.level;
             document.getElementById('expBar').style.width = `${(gameState.exp / reqExp) * 100}%`;
+            localStorage.setItem('cannaCultivatorSave', JSON.stringify(gameState));
         }
 
         function renderShop() {
@@ -266,6 +267,15 @@
             }
         }
 
+        function prestigeMax() {
+            const cost = gameState.prestigeLevel * 50000;
+            if (gameState.grams >= cost) {
+                gameState.grams -= cost;
+                gameState.prestigeLevel++;
+                updateUI();
+            }
+        }
+
         function gameLoop() {
             const hps = (gameState.crew.trimmers.count * 1 + gameState.crew.growers.count * 5) * gameState.multipliers.auto * (gameState.multipliers.strain * gameState.prestigeLevel * (1 + (gameState.level * 0.05)) * getDonationMult());
             gameState.grams += hps / 10;
@@ -279,4 +289,3 @@
     </script>
 </body>
 </html>
-
