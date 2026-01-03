@@ -2,240 +2,255 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Canna Cultivator - Original Restoration</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canna Cultivator</title>
     <script src="https://www.paypal.com/sdk/js?client-id=AZawPulf_LA1GNqlqUE_L6PC4UqJsan33_c5L9wEcOLTRK1itpzK1QrSwueuFyPlbaEV7U0JejX_Vd70&currency=GBP"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    
     <style>
-        /* Original Dark Green Theme */
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-tap-highlight-color: transparent; }
-        body { background: #0a1505; color: #f0f7da; min-height: 100vh; padding: 15px; background-image: radial-gradient(#1a2e0e 1px, transparent 1px); background-size: 20px 20px; }
-        
-        .container { max-width: 1200px; margin: 0 auto; background: rgba(10, 20, 5, 0.95); border-radius: 15px; padding: 25px; box-shadow: 0 0 50px rgba(0,0,0,0.8); border: 2px solid #4caf50; }
-        
-        .header { text-align: center; border-bottom: 2px solid #4caf50; padding-bottom: 20px; margin-bottom: 30px; }
-        .game-title { font-size: 3rem; color: #76ff03; text-shadow: 3px 3px 0 #1b3012; letter-spacing: 2px; }
-        
-        /* Layout Grid */
-        .game-grid { display: grid; grid-template-columns: 1fr 2fr 1.2fr; gap: 20px; }
-        @media (max-width: 900px) { .game-grid { grid-template-columns: 1fr; } }
+        body {
+            background-color: #050a02;
+            color: #76ff03;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
 
-        .panel { background: rgba(20, 35, 10, 0.8); border: 1px solid #388e3c; border-radius: 12px; padding: 20px; }
-        .section-title { color: #76ff03; font-size: 1.4rem; margin-bottom: 15px; text-transform: uppercase; border-left: 4px solid #76ff03; padding-left: 10px; }
+        #game-container {
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+        }
 
-        /* Garden Area */
-        .click-zone { text-align: center; }
-        .click-area { width: 240px; height: 240px; margin: 0 auto; background: radial-gradient(circle, rgba(118, 255, 3, 0.15) 0%, transparent 70%); border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 120px; transition: 0.1s; user-select: none; }
-        .click-area:active { transform: scale(0.9); }
-        .grams-display { font-size: 3rem; font-weight: 900; color: #fff; margin: 15px 0; }
+        .header-box {
+            border: 2px solid #4caf50;
+            padding: 15px;
+            margin-bottom: 20px;
+            background: rgba(118, 255, 3, 0.05);
+        }
 
-        /* UI Elements */
-        .exp-bar-bg { width: 100%; background: #1b3012; height: 12px; border-radius: 6px; overflow: hidden; margin: 10px 0; border: 1px solid #4caf50; }
-        .exp-bar-fill { height: 100%; background: #76ff03; width: 0%; transition: width 0.4s; }
-        
-        button { background: linear-gradient(180deg, #4caf50 0%, #2e7d32 100%); color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; width: 100%; transition: 0.2s; border-bottom: 3px solid #1b3012; }
-        button:hover { filter: brightness(1.1); }
-        button:disabled { opacity: 0.3; cursor: not-allowed; }
+        h1 { font-size: 2.5rem; text-shadow: 2px 2px #000; margin: 0; }
 
-        .shop-item { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #2d5016; }
-        
-        /* Chat & Leaderboard */
-        #chat-window { height: 200px; overflow-y: auto; background: #050a02; border: 1px solid #388e3c; padding: 10px; font-size: 0.9rem; border-radius: 5px; margin-bottom: 10px; }
-        .lb-entry { display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #1b3012; }
-        .lb-entry.me { color: #76ff03; font-weight: bold; background: rgba(118,255,3,0.05); }
+        .plant-button {
+            font-size: 100px;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.1s;
+            margin: 30px 0;
+            display: inline-block;
+        }
 
-        .floating-text { position: fixed; color: #76ff03; font-weight: bold; font-size: 1.8rem; pointer-events: none; animation: rise 0.8s ease-out forwards; text-shadow: 2px 2px 4px #000; z-index: 9999; }
-        @keyframes rise { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-150px); } }
+        .plant-button:active { transform: scale(0.9); }
+
+        .stat-line {
+            font-size: 1.5rem;
+            color: #fff;
+            margin: 10px 0;
+        }
+
+        .menu-section {
+            width: 100%;
+            margin-top: 20px;
+            border-top: 1px solid #4caf50;
+            padding-top: 20px;
+        }
+
+        .item-card {
+            background: #111;
+            border: 1px solid #4caf50;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        button {
+            background: #4caf50;
+            color: #000;
+            border: none;
+            padding: 10px 15px;
+            font-weight: bold;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        button:hover { background: #76ff03; }
+        button:disabled { background: #222; color: #444; }
+
+        #leaderboard-box, #chat-box {
+            width: 100%;
+            background: #000;
+            border: 1px solid #4caf50;
+            height: 150px;
+            overflow-y: auto;
+            text-align: left;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+
+        .floating-num {
+            position: fixed;
+            color: #fff;
+            font-weight: bold;
+            pointer-events: none;
+            animation: flyUp 1s forwards;
+        }
+
+        @keyframes flyUp {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-100px); opacity: 0; }
+        }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="header">
-        <h1 class="game-title">🌿 CANNA CULTIVATOR</h1>
-        <p>Master Grower: <span id="pName" style="color:#76ff03">...</span> | Level <span id="pLvl">1</span></p>
-        <div class="exp-bar-bg"><div class="exp-bar-fill" id="expFill"></div></div>
+<div id="game-container">
+    <div class="header-box">
+        <h1>CANNA CULTIVATOR</h1>
+        <p>GROWER: <span id="display-name">...</span></p>
     </div>
 
-    <div class="game-grid">
-        <div class="panel">
-            <h2 class="section-title">Strain Lab</h2>
-            <div id="strainContainer"></div>
-            <h2 class="section-title" style="margin-top:20px;">Supplies</h2>
-            <div id="upgradeContainer"></div>
-        </div>
+    <div class="stat-line"><span id="grams-total">0</span> GRAMS</div>
+    <div id="gps-display" style="color: #4caf50;">0.0 g/sec</div>
 
-        <div class="panel click-zone">
-            <h2 class="section-title">The Garden</h2>
-            <div class="click-area" id="plant">🌿</div>
-            <div class="grams-display" id="grams">0g</div>
-            <p style="color:#aed581; font-weight:bold;"><span id="gps">0</span> g/sec</p>
-            
-            <div style="margin-top:30px; border-top:1px solid #388e3c; padding-top:20px;">
-                <p style="color:#ffc107; font-size:0.8rem; margin-bottom:5px;">PREMIUM DONATION BOOST (x20)</p>
-                <div id="paypal-btn"></div>
-            </div>
-        </div>
+    <div class="plant-button" id="main-plant">🌿</div>
 
-        <div class="panel">
-            <h2 class="section-title">Top Growers</h2>
-            <div id="leaderboard">Loading...</div>
+    <div class="menu-section">
+        <h3>EQUIPMENT</h3>
+        <div id="equipment-list"></div>
+    </div>
 
-            <h2 class="section-title" style="margin-top:20px;">Global Chat</h2>
-            <div id="chat-window"></div>
-            <input type="text" id="chatInput" placeholder="Message..." style="width:100%; padding:10px; background:#050a02; border:1px solid #4caf50; color:#fff; border-radius:5px;">
+    <div class="menu-section">
+        <h3>LIVE LEADERBOARD</h3>
+        <div id="leaderboard-box"></div>
+    </div>
 
-            <h2 class="section-title" style="margin-top:20px;">Crew</h2>
-            <div id="crewContainer"></div>
-        </div>
+    <div class="menu-section">
+        <h3>GLOBAL CHAT</h3>
+        <div id="chat-box"></div>
+        <input type="text" id="chat-input" placeholder="Say something..." style="width: 100%; background: #000; border: 1px solid #4caf50; color: #76ff03; padding: 10px; margin-top: 5px;">
+    </div>
+
+    <div class="menu-section">
+        <p style="font-size: 0.8rem; margin-bottom: 10px;">SUPPORT THE GROW (x20 BOOST)</p>
+        <div id="paypal-container"></div>
     </div>
 </div>
 
 <script>
-    // Config
     const SB_URL = 'https://klcqhrajnhegzmzfdzji.supabase.co';
     const SB_KEY = 'EyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsY3FocmFqbmhlZ3ptemZkemppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0NTk1MjcsImV4cCI6MjA4MzAzNTUyN30.DhESHsa5cmHTvetWtEIBqGQHfiXml4eOpUteC8A-LAU';
     const supabase = supabase.createClient(SB_URL, SB_KEY);
 
-    let state = {
-        name: "", grams: 0, lvl: 1, exp: 0, donations: 0,
-        crew: { trimmer: 0, grower: 0 },
-        costs: { trimmer: 20, grower: 150 },
-        strains: ['ditch'],
-        mult: 1
+    let game = {
+        name: "",
+        grams: 0,
+        donations: 0,
+        items: { trimmer: 0, grower: 0 },
+        costs: { trimmer: 15, grower: 100 }
     };
 
-    function format(n) { return Math.floor(n).toLocaleString(); }
+    function init() {
+        const saved = localStorage.getItem('canna_original_v1');
+        if(saved) game = Object.assign(game, JSON.parse(saved));
+        if(!game.name) game.name = prompt("Enter Grower Name:") || "Unknown";
+        document.getElementById('display-name').innerText = game.name;
 
-    async function init() {
-        const local = localStorage.getItem('canna_restore_save');
-        if(local) state = Object.assign(state, JSON.parse(local));
-        if(!state.name) state.name = prompt("Grower Name:") || "Newbie";
-        document.getElementById('pName').innerText = state.name;
-
-        renderShop();
-        gameLoop();
-        initPaypal();
+        updateStore();
+        tick();
+        setupPaypal();
         loadLeaderboard();
         setupChat();
-        
-        setInterval(syncData, 10000);
-        setInterval(loadLeaderboard, 15000);
+        setInterval(sync, 10000);
+    }
+
+    async function sync() {
+        await supabase.from('players').upsert({ player_name: game.name, total_grams: Math.floor(game.grams) }, { onConflict: 'player_name' });
+        loadLeaderboard();
     }
 
     async function loadLeaderboard() {
         const { data } = await supabase.from('players').select('*').order('total_grams', { ascending: false }).limit(5);
         if(data) {
-            document.getElementById('leaderboard').innerHTML = data.map(p => `
-                <div class="lb-entry ${p.player_name === state.name ? 'me' : ''}">
-                    <span>${p.player_name}</span><b>${format(p.total_grams)}g</b>
-                </div>`).join('');
+            document.getElementById('leaderboard-box').innerHTML = data.map(p => `<div>${p.player_name}: ${Math.floor(p.total_grams)}g</div>`).join('');
         }
     }
 
     function setupChat() {
-        supabase.channel('public:global_chat').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'global_chat' }, payload => {
-            const win = document.getElementById('chat-window');
-            win.innerHTML += `<div><span style="color:#76ff03">${payload.new.player_name}:</span> ${payload.new.message_text}</div>`;
-            win.scrollTop = win.scrollHeight;
+        supabase.channel('chat').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'global_chat' }, payload => {
+            const box = document.getElementById('chat-box');
+            box.innerHTML += `<div>[${payload.new.player_name}]: ${payload.new.message_text}</div>`;
+            box.scrollTop = box.scrollHeight;
         }).subscribe();
 
-        document.getElementById('chatInput').onkeypress = async (e) => {
-            if(e.key === 'Enter' && e.target.value.trim()) {
-                await supabase.from('global_chat').insert([{ player_name: state.name, message_text: e.target.value }]);
+        document.getElementById('chat-input').onkeydown = async (e) => {
+            if(e.key === 'Enter' && e.target.value) {
+                await supabase.from('global_chat').insert([{ player_name: game.name, message_text: e.target.value }]);
                 e.target.value = '';
             }
         };
     }
 
-    async function syncData() {
-        await supabase.from('players').upsert({ 
-            player_name: state.name, 
-            total_grams: Math.floor(state.grams), 
-            player_level: state.lvl 
-        }, { onConflict: 'player_name' });
-    }
-
-    function initPaypal() {
+    function setupPaypal() {
         paypal.Buttons({
             createOrder: (d, a) => a.order.create({ purchase_units: [{ amount: { value: '4.99' } }] }),
-            onApprove: (d, a) => a.order.capture().then(() => { state.donations++; ui(); })
-        }).render('#paypal-btn');
+            onApprove: (d, a) => a.order.capture().then(() => { game.donations++; })
+        }).render('#paypal-container');
     }
 
-    function clickPlant(e) {
-        const power = state.mult * (1 + (state.donations * 20)) * (1 + (state.lvl * 0.05));
-        state.grams += power; state.exp += 15;
+    document.getElementById('main-plant').onclick = (e) => {
+        const power = 1 + (game.donations * 20);
+        game.grams += power;
         
-        const float = document.createElement('div');
-        float.className = 'floating-text';
-        float.innerText = `+${format(power)}g`;
-        float.style.left = e.clientX + 'px';
-        float.style.top = e.clientY + 'px';
-        document.body.appendChild(float);
-        setTimeout(() => float.remove(), 800);
-        ui();
-    }
+        const f = document.createElement('div');
+        f.className = 'floating-num';
+        f.innerText = "+" + power;
+        f.style.left = e.clientX + "px";
+        f.style.top = e.clientY + "px";
+        document.body.appendChild(f);
+        setTimeout(() => f.remove(), 1000);
+    };
 
-    function ui() {
-        const boost = (1 + (state.donations * 20)) * (1 + (state.lvl * 0.05));
-        const gps = (state.crew.trimmer * 1 + state.crew.grower * 6) * boost * state.mult;
-        
-        document.getElementById('grams').innerText = format(state.grams) + "g";
-        document.getElementById('gps').innerText = format(gps);
-        document.getElementById('pLvl').innerText = state.lvl;
-        
-        const next = state.lvl * 1200;
-        if(state.exp >= next) { state.exp = 0; state.lvl++; }
-        document.getElementById('expFill').style.width = (state.exp / next * 100) + "%";
-        
-        localStorage.setItem('canna_restore_save', JSON.stringify(state));
-    }
-
-    function renderShop() {
-        const sContainer = document.getElementById('strainContainer');
-        sContainer.innerHTML = `
-            <div class="shop-item"><p>Skunk #1 (x2)</p><button onclick="buyStrain('skunk', 1000, 2)">Buy 1,000g</button></div>
-            <div class="shop-item"><p>Purple Haze (x5)</p><button onclick="buyStrain('haze', 5000, 5)">Buy 5,000g</button></div>
-        `;
-
-        const cContainer = document.getElementById('crewContainer');
-        cContainer.innerHTML = `
-            <div class="shop-item"><p>Trimmer (1g/s)</p><button onclick="buyCrew('trimmer')">Hire ${format(state.costs.trimmer)}g</button></div>
-            <div class="shop-item"><p>Grower (6g/s)</p><button onclick="buyCrew('grower')">Hire ${format(state.costs.grower)}g</button></div>
+    function updateStore() {
+        document.getElementById('equipment-list').innerHTML = `
+            <div class="item-card">
+                <span>Trimmer (1g/s) [${game.items.trimmer}]</span>
+                <button onclick="buy('trimmer')">BUY ${game.costs.trimmer}g</button>
+            </div>
+            <div class="item-card">
+                <span>Master Grower (10g/s) [${game.items.grower}]</span>
+                <button onclick="buy('grower')">BUY ${game.costs.grower}g</button>
+            </div>
         `;
     }
 
-    function buyCrew(type) {
-        if(state.grams >= state.costs[type]) {
-            state.grams -= state.costs[type];
-            state.crew[type]++;
-            state.costs[type] = Math.floor(state.costs[type] * 1.4);
-            renderShop(); ui();
+    window.buy = (id) => {
+        if(game.grams >= game.costs[id]) {
+            game.grams -= game.costs[id];
+            game.items[id]++;
+            game.costs[id] = Math.floor(game.costs[id] * 1.5);
+            updateStore();
         }
+    };
+
+    function tick() {
+        const auto = (game.items.trimmer * 1) + (game.items.grower * 10);
+        const boost = 1 + (game.donations * 20);
+        game.grams += (auto * boost) / 10;
+        
+        document.getElementById('grams-total').innerText = Math.floor(game.grams).toLocaleString();
+        document.getElementById('gps-display').innerText = (auto * boost).toFixed(1) + " g/sec";
+        
+        localStorage.setItem('canna_original_v1', JSON.stringify(game));
+        setTimeout(tick, 100);
     }
 
-    function buyStrain(id, cost, m) {
-        if(state.grams >= cost && !state.strains.includes(id)) {
-            state.grams -= cost;
-            state.strains.push(id);
-            state.mult = m;
-            ui();
-        }
-    }
-
-    function gameLoop() {
-        const boost = (1 + (state.donations * 20)) * (1 + (state.lvl * 0.05));
-        const gps = (state.crew.trimmer * 1 + state.crew.grower * 6) * boost * state.mult;
-        state.grams += gps / 10;
-        ui();
-        setTimeout(gameLoop, 100);
-    }
-
-    document.getElementById('plant').onclick = clickPlant;
     window.onload = init;
 </script>
-
 </body>
 </html>
+
