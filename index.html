@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Canna Cultivator - Live</title>
+    <title>Canna Cultivator - Live Edition</title>
     <script src="https://www.paypal.com/sdk/js?client-id=sb&currency=GBP"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-tap-highlight-color: transparent; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: linear-gradient(135deg, #1a2e0e 0%, #2d5016 100%); color: #f0f7da; min-height: 100vh; padding: 10px; }
         .container { max-width: 1200px; margin: 0 auto; background: rgba(20, 30, 15, 0.9); border-radius: 20px; padding: 20px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); border: 3px solid #4caf50; }
         .header { text-align: center; padding: 10px; border-bottom: 3px solid #4caf50; margin-bottom: 20px; }
@@ -21,7 +23,7 @@
         .click-area:active { transform: scale(0.92); }
         .coins-display { font-size: 2.2em; color: #fff; margin: 10px 0; text-shadow: 2px 2px 0 #000; }
         .herb-count { color: #aed581; font-weight: bold; margin: 5px 0; }
-        .leaderboard-list { list-style: none; font-size: 0.9em; max-height: 200px; overflow-y: auto; }
+        .leaderboard-list { list-style: none; font-size: 0.9em; max-height: 250px; overflow-y: auto; }
         .leaderboard-item { display: flex; flex-direction: column; padding: 8px; border-bottom: 1px solid #388e3c; }
         .you-row { color: #76ff03; font-weight: bold; background: rgba(118, 255, 3, 0.1); }
         .lb-stats { display: flex; justify-content: space-between; font-size: 0.85em; opacity: 0.9; }
@@ -35,7 +37,7 @@
         .floating-num { position: fixed; color: #76ff03; font-weight: bold; pointer-events: none; animation: floatUp 0.8s ease-out forwards; z-index: 1000; text-shadow: 1px 1px 2px black; font-size: 1.5rem; }
         @keyframes floatUp { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-120px); opacity: 0; } }
         .helper { display: flex; justify-content: space-between; align-items: center; background: rgba(0,0,0,0.2); padding: 10px; margin: 5px 0; border-radius: 5px; }
-        #chat-box { height: 150px; background: rgba(0,0,0,0.3); border-radius: 5px; margin-top: 10px; padding: 5px; overflow-y: auto; font-size: 0.8em; border: 1px solid #388e3c; }
+        #chat-box { height: 180px; background: rgba(0,0,0,0.3); border-radius: 5px; margin-top: 10px; padding: 8px; overflow-y: auto; font-size: 0.85em; border: 1px solid #388e3c; }
     </style>
 </head>
 <body>
@@ -72,12 +74,12 @@
             </div>
             
             <div class="stats-sidebar">
-                <h2 class="section-title">Leaderboard</h2>
-                <div id="leaderboard" class="leaderboard-list"></div>
+                <h2 class="section-title">Live Leaderboard</h2>
+                <div id="leaderboard" class="leaderboard-list">Loading...</div>
                 
                 <h2 class="section-title" style="margin-top:20px;">Global Chat</h2>
-                <div id="chat-box">System: Welcome to the grow room!</div>
-                <input type="text" id="chatInput" placeholder="Press Enter to chat..." style="width:100%; background:#1b3012; border:1px solid #4caf50; color:#fff; padding:5px; margin-top:5px; border-radius:5px;">
+                <div id="chat-box"></div>
+                <input type="text" id="chatInput" placeholder="Type and hit Enter..." style="width:100%; background:#1b3012; border:1px solid #4caf50; color:#fff; padding:10px; margin-top:5px; border-radius:5px;">
 
                 <h2 class="section-title" style="margin-top:20px;">The Crew</h2>
                 <div class="helper"><span>Trimmers:</span><b id="count-trimmers">0</b></div>
@@ -96,6 +98,11 @@
     </div>
 
     <script>
+        // --- SUPABASE CONFIG ---
+        const SB_URL = 'YOUR_SUPABASE_URL';
+        const SB_KEY = 'YOUR_SUPABASE_ANON_KEY';
+        const supabase = libsupabase.createClient(SB_URL, SB_KEY);
+
         function formatNum(num) {
             if (num < 1000) return Math.floor(num).toLocaleString();
             const suffixes = ["", "k", "m", "b", "t"];
@@ -124,21 +131,72 @@
         ];
 
         function getDonationMult() { return 1 + (gameState.donations * 20); }
-        function getNextPrestigeCost(level) { return 10000 * (level ** 2); }
         function getRequiredEXP(level) { return (level ** 2) * 1000; }
 
-        function init() {
+        async function init() {
             const saved = localStorage.getItem('cannaCultivatorSave');
             if(saved) gameState = Object.assign(gameState, JSON.parse(saved));
-            if(!gameState.playerName) gameState.playerName = prompt("Name:", "Grower") || "Grower";
+            if(!gameState.playerName) gameState.playerName = prompt("Grower Name:", "BigBud") || "BigBud";
             document.getElementById('playerNameDisplay').innerText = gameState.playerName;
-            renderShop(); gameLoop(); initPayPal();
+            
+            renderShop();
+            gameLoop();
+            initPayPal();
+            
+            // Start Live Services
+            fetchLeaderboard();
+            listenToChat();
+            setInterval(syncPlayerData, 10000); // Sync to SQL every 10s
+            setInterval(fetchLeaderboard, 15000); // Refresh board every 15s
+        }
+
+        async function syncPlayerData() {
+            await supabase.from('players').upsert({ 
+                player_name: gameState.playerName, 
+                player_level: gameState.level,
+                total_grams: gameState.grams,
+                prestige_level: gameState.prestigeLevel,
+                donation_stacks: gameState.donations
+            }, { onConflict: 'player_name' });
+        }
+
+        async function fetchLeaderboard() {
+            const { data } = await supabase.from('players').select('*').order('total_grams', { ascending: false }).limit(10);
+            if(data) {
+                document.getElementById('leaderboard').innerHTML = data.map((p, i) => `
+                    <div class="leaderboard-item ${p.player_name === gameState.playerName ? 'you-row' : ''}">
+                        <b>#${i+1} ${p.player_name.toUpperCase()}</b>
+                        <div class="lb-stats"><span>Lvl ${p.player_level}</span><span>${formatNum(p.total_grams)}g</span></div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function listenToChat() {
+            supabase.channel('global_chat').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'global_chat' }, payload => {
+                const chatBox = document.getElementById('chat-box');
+                chatBox.innerHTML += `<div><b>${payload.new.player_name}:</b> ${payload.new.message_text}</div>`;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }).subscribe();
+            
+            document.getElementById('chatInput').addEventListener('keypress', async (e) => {
+                if(e.key === 'Enter' && e.target.value.trim()) {
+                    await supabase.from('global_chat').insert([{ player_name: gameState.playerName, message_text: e.target.value }]);
+                    e.target.value = '';
+                }
+            });
         }
 
         function initPayPal() {
             paypal.Buttons({
                 createOrder: (data, actions) => actions.order.create({ purchase_units: [{ amount: { value: '4.99' }, payee: { email_address: 'mrliamc90@gmail.com' } }] }),
-                onApprove: (data, actions) => actions.order.capture().then(() => { gameState.donations++; updateUI(); })
+                onApprove: (data, actions) => actions.order.capture().then(async (details) => { 
+                    gameState.donations++; 
+                    updateUI(); 
+                    // Log to SQL
+                    const { data: p } = await supabase.from('players').select('player_id').eq('player_name', gameState.playerName).single();
+                    if(p) await supabase.from('purchases').insert([{ player_id: p.player_id, paypal_order_id: details.id }]);
+                })
             }).render('#paypal-button-container');
         }
 
@@ -153,23 +211,19 @@
         }
 
         function updateUI() {
-            const levelMult = 1 + (gameState.level * 0.05);
-            const donateMult = getDonationMult();
-            const totalMult = gameState.multipliers.strain * gameState.prestigeLevel * levelMult * donateMult;
+            const totalMult = gameState.multipliers.strain * gameState.prestigeLevel * (1 + (gameState.level * 0.05)) * getDonationMult();
             const hps = (gameState.crew.trimmers.count * 1 + gameState.crew.growers.count * 5) * gameState.multipliers.auto * totalMult;
-            
             document.getElementById('coinsDisplay').innerText = `${formatNum(gameState.grams)} Grams`;
-            document.getElementById('count-trimmers').innerText = gameState.crew.trimmers.count;
-            document.getElementById('count-growers').innerText = gameState.crew.growers.count;
             document.getElementById('hpsDisplay').innerText = `${formatNum(hps)}g/sec`;
             document.getElementById('hpcDisplay').innerText = `${formatNum(1 * gameState.multipliers.tap * totalMult)}g/click`;
-            document.getElementById('prestigeMult').innerText = formatNum(gameState.prestigeLevel * donateMult);
+            document.getElementById('prestigeMult').innerText = formatNum(gameState.prestigeLevel * getDonationMult());
             document.getElementById('stackCount').innerText = gameState.donations;
+            document.getElementById('count-trimmers').innerText = gameState.crew.trimmers.count;
+            document.getElementById('count-growers').innerText = gameState.crew.growers.count;
             
             const reqExp = getRequiredEXP(gameState.level);
             document.getElementById('levelDisplay').innerText = gameState.level;
             document.getElementById('expBar').style.width = `${(gameState.exp / reqExp) * 100}%`;
-            document.getElementById('leaderboard').innerHTML = `<div class="leaderboard-item you-row"><b>#1 ${gameState.playerName.toUpperCase()}</b><div class="lb-stats"><span>Lvl ${gameState.level}</span><span>${formatNum(gameState.grams)}g</span></div></div>`;
         }
 
         function renderShop() {
@@ -213,8 +267,7 @@
         }
 
         function gameLoop() {
-            const totalMult = gameState.multipliers.strain * gameState.prestigeLevel * (1 + (gameState.level * 0.05)) * getDonationMult();
-            const hps = (gameState.crew.trimmers.count * 1 + gameState.crew.growers.count * 5) * gameState.multipliers.auto * totalMult;
+            const hps = (gameState.crew.trimmers.count * 1 + gameState.crew.growers.count * 5) * gameState.multipliers.auto * (gameState.multipliers.strain * gameState.prestigeLevel * (1 + (gameState.level * 0.05)) * getDonationMult());
             gameState.grams += hps / 10;
             if(gameState.exp >= getRequiredEXP(gameState.level)) { gameState.exp = 0; gameState.level++; }
             updateUI(); setTimeout(gameLoop, 100);
@@ -222,7 +275,6 @@
 
         function resetGame() { if(confirm("Wipe?")) { localStorage.clear(); location.reload(); } }
         document.getElementById('clickArea').addEventListener('click', clickPlant);
-        setInterval(() => localStorage.setItem('cannaCultivatorSave', JSON.stringify(gameState)), 5000);
         window.onload = init;
     </script>
 </body>
