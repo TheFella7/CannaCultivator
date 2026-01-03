@@ -2,53 +2,52 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Canna Cultivator - Live</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; -webkit-tap-highlight-color: transparent; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
         body { background: #1a2e0e; color: #f0f7da; padding: 10px; }
-        .container { max-width: 1000px; margin: 0 auto; background: rgba(0,0,0,0.8); border-radius: 15px; padding: 20px; border: 2px solid #4caf50; }
-        .header { text-align: center; margin-bottom: 20px; }
-        .game-area { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        @media (max-width: 768px) { .game-area { grid-template-columns: 1fr; } }
-        .main-col, .side-col { background: rgba(45, 70, 35, 0.3); padding: 15px; border-radius: 10px; }
-        .click-btn { width: 180px; height: 180px; background: #2d5016; border-radius: 50%; margin: 20px auto; display: flex; align-items: center; justify-content: center; font-size: 80px; cursor: pointer; border: 4px solid #76ff03; user-select: none; transition: transform 0.1s; }
-        .click-btn:active { transform: scale(0.95); }
-        .stats { font-size: 1.5em; text-align: center; margin: 10px 0; color: #76ff03; }
-        .shop-item { background: rgba(0,0,0,0.4); padding: 10px; margin-bottom: 10px; border-radius: 8px; border: 1px solid #4caf50; }
-        button { width: 100%; padding: 10px; background: #4caf50; border: none; color: white; font-weight: bold; cursor: pointer; border-radius: 5px; }
-        button:disabled { background: #333; cursor: not-allowed; opacity: 0.5; }
-        #chat-box { height: 120px; overflow-y: auto; background: #000; padding: 5px; font-size: 0.8em; margin-bottom: 5px; }
-        .owned-tag { color: #76ff03; font-weight: bold; font-size: 0.8em; }
+        .container { max-width: 900px; margin: 0 auto; background: rgba(0,0,0,0.85); border-radius: 15px; padding: 20px; border: 2px solid #4caf50; }
+        .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #4caf50; padding-bottom: 10px; }
+        .game-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; }
+        @media (max-width: 600px) { .game-grid { grid-template-columns: 1fr; } }
+        .click-zone { text-align: center; background: rgba(255,255,255,0.05); padding: 20px; border-radius: 15px; }
+        .click-btn { width: 150px; height: 150px; background: #2d5016; border-radius: 50%; margin: 10px auto; display: flex; align-items: center; justify-content: center; font-size: 70px; cursor: pointer; border: 4px solid #76ff03; user-select: none; transition: 0.1s; }
+        .click-btn:active { transform: scale(0.9); }
+        .stats-text { font-size: 1.8em; color: #76ff03; margin: 10px 0; font-weight: bold; }
+        .shop-box { background: rgba(45, 70, 35, 0.4); padding: 15px; border-radius: 10px; }
+        .item { background: #000; padding: 10px; margin: 8px 0; border-radius: 5px; border-left: 4px solid #76ff03; }
+        button { width: 100%; padding: 10px; background: #4caf50; border: none; color: #fff; font-weight: bold; cursor: pointer; border-radius: 4px; }
+        button:disabled { background: #333; color: #777; cursor: not-allowed; }
+        .owned { color: #76ff03; font-weight: bold; font-style: italic; text-align: center; display: block; padding: 5px; }
+        #chat-window { height: 100px; background: #000; overflow-y: auto; padding: 5px; font-size: 0.8em; margin-top: 10px; border: 1px solid #4caf50; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1 style="color:#76ff03">🌿 Canna Cultivator</h1>
-            <p>Grower: <span id="pName">...</span> | Level: <span id="pLvl">1</span></p>
+            <p>Grower: <b id="ui-name">...</b> | Stacks: <b id="ui-mult">x1</b></p>
         </div>
 
-        <div class="game-area">
-            <div class="main-col">
-                <div class="click-btn" id="clickBtn">🌿</div>
-                <div class="stats" id="gramsDisplay">0 Grams</div>
-                <div style="text-align:center; font-size: 0.9em;">
-                    <p id="hpcDisp">1g/click</p>
-                    <p id="hpsDisp">0g/sec</p>
-                </div>
-                <hr style="margin: 15px 0; border: 0; border-top: 1px solid #4caf50;">
-                <h3>The Crew (Buy Max)</h3>
-                <div id="crewList"></div>
+        <div class="game-grid">
+            <div class="click-zone">
+                <div class="click-btn" id="plantBtn">🌿</div>
+                <div class="stats-text" id="ui-grams">0 Grams</div>
+                <p id="ui-hps">0.00 g/sec</p>
+                
+                <h3 style="margin-top:20px;">The Crew (Buy Max)</h3>
+                <div id="crew-list"></div>
             </div>
 
-            <div class="side-col">
-                <h3>Permanent Strains</h3>
-                <div id="strainList"></div>
+            <div class="shop-box">
+                <h3 style="color:#76ff03">Permanent Strains</h3>
+                <div id="strain-list"></div>
+                
                 <h3 style="margin-top:20px;">Global Chat</h3>
-                <div id="chat-box"></div>
-                <input type="text" id="chatInput" placeholder="Message..." style="width:100%; padding:8px; background:#000; border:1px solid #4caf50; color:#fff;">
+                <div id="chat-window"></div>
+                <input type="text" id="chat-input" placeholder="Type a message..." style="width:100%; padding:8px; margin-top:5px; background:#000; color:#fff; border:1px solid #4caf50;">
             </div>
         </div>
     </div>
@@ -58,107 +57,106 @@
         const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsY3FocmFqbmhlZ3ptemZkemppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0NTk1MjcsImV4cCI6MjA4MzAzNTUyN30.DhESHsa5cmHTvetWtEIBqGQHfiXml4eOpUteC8A-LAU';
         const sb = supabase.createClient(SB_URL, SB_KEY);
 
-        let state = {
-            name: "", grams: 0, level: 1, exp: 0,
-            crew: { trimmers: { count: 0, cost: 20, power: 1 }, growers: { count: 0, cost: 150, power: 5 } },
-            strains: [] // Stores IDs of owned strains
+        let game = {
+            name: "", grams: 0,
+            crew: { trimmer: { count: 0, cost: 20, pwr: 1 }, grower: { count: 0, cost: 150, pwr: 5 } },
+            strains: [] 
         };
 
-        const strainData = [
-            { id: 'skunk', name: 'Skunk #1', cost: 1000, mult: 2 },
-            { id: 'haze', name: 'Purple Haze', cost: 5000, mult: 5 },
-            { id: 'kush', name: 'OG Kush', cost: 25000, mult: 10 }
+        const strains = [
+            { id: 'skunk', name: 'Skunk #1', cost: 1000, x: 2 },
+            { id: 'haze', name: 'Purple Haze', cost: 7500, x: 5 },
+            { id: 'kush', name: 'OG Kush', cost: 50000, x: 10 }
         ];
 
         function getMult() {
             let m = 1;
-            strainData.forEach(s => { if(state.strains.includes(s.id)) m *= s.mult; });
+            strains.forEach(s => { if(game.strains.includes(s.id)) m *= s.x; });
             return m;
         }
 
-        function updateUI() {
+        function draw() {
             const m = getMult();
-            const hps = (state.crew.trimmers.count * state.crew.trimmers.power + state.crew.growers.count * state.crew.growers.power) * m;
+            const hps = (game.crew.trimmer.count * game.crew.trimmer.pwr + game.crew.grower.count * game.crew.grower.pwr) * m;
             
-            document.getElementById('gramsDisplay').innerText = Math.floor(state.grams).toLocaleString() + " Grams";
-            document.getElementById('hpcDisp').innerText = (1 * m).toLocaleString() + "g / click";
-            document.getElementById('hpsDisp').innerText = hps.toLocaleString() + "g / sec";
-            document.getElementById('pLvl').innerText = state.level;
+            document.getElementById('ui-grams').innerText = Math.floor(game.grams).toLocaleString() + "g";
+            document.getElementById('ui-hps').innerText = hps.toLocaleString() + " g/sec";
+            document.getElementById('ui-mult').innerText = "x" + m;
 
-            // Render Crew
-            document.getElementById('crewList').innerHTML = Object.keys(state.crew).map(id => `
-                <div class="shop-item">
-                    <span>${id.toUpperCase()}: ${state.crew[id].count}</span>
-                    <button onclick="buyMaxCrew('${id}')">Buy Max (${state.crew[id].cost}g)</button>
+            // Crew UI
+            document.getElementById('crew-list').innerHTML = Object.keys(game.crew).map(id => `
+                <div class="item">
+                    <b>${id.toUpperCase()}</b> (x${game.crew[id].count})<br>
+                    <button onclick="buyMaxCrew('${id}')" ${game.grams < game.crew[id].cost ? 'disabled' : ''}>Buy Max: ${game.crew[id].cost}g</button>
                 </div>
             `).join('');
 
-            // Render Strains (Buy Once)
-            document.getElementById('strainList').innerHTML = strainData.map(s => {
-                const owned = state.strains.includes(s.id);
+            // Strains UI
+            document.getElementById('strain-list').innerHTML = strains.map(s => {
+                const isOwned = game.strains.includes(s.id);
                 return `
-                    <div class="shop-item">
-                        <b>${s.name} (x${s.mult})</b><br>
-                        ${owned ? '<span class="owned-tag">PURCHASED</span>' : `<button onclick="buyStrain('${s.id}')" ${state.grams < s.cost ? 'disabled' : ''}>Buy Once: ${s.cost}g</button>`}
+                    <div class="item">
+                        <b>${s.name} (x${s.x} Multiplier)</b><br>
+                        ${isOwned ? '<span class="owned">PURCHASED</span>' : `<button onclick="buyStrain('${s.id}')" ${game.grams < s.cost ? 'disabled' : ''}>Buy: ${s.cost}g</button>`}
                     </div>
                 `;
             }).join('');
         }
 
         function buyMaxCrew(id) {
-            while(state.grams >= state.crew[id].cost) {
-                state.grams -= state.crew[id].cost;
-                state.crew[id].count++;
-                state.crew[id].cost = Math.floor(state.crew[id].cost * 1.2);
+            while(game.grams >= game.crew[id].cost) {
+                game.grams -= game.crew[id].cost;
+                game.crew[id].count++;
+                game.crew[id].cost = Math.floor(game.crew[id].cost * 1.25);
             }
-            updateUI();
+            draw();
         }
 
         function buyStrain(id) {
-            const s = strainData.find(x => x.id === id);
-            if(!state.strains.includes(id) && state.grams >= s.cost) {
-                state.grams -= s.cost;
-                state.strains.push(id);
-                updateUI();
+            const s = strains.find(x => x.id === id);
+            if(!game.strains.includes(id) && game.grams >= s.cost) {
+                game.grams -= s.cost;
+                game.strains.push(id);
+                draw();
             }
         }
 
-        async function save() {
-            if(!state.name) return;
+        async function saveGame() {
+            if(!game.name) return;
             await sb.from('leaderboard').upsert({
-                player_name: state.name, grams: Math.floor(state.grams),
-                player_level: state.level, game_state: state, last_active: new Date()
+                player_name: game.name, grams: Math.floor(game.grams),
+                game_state: game, last_active: new Date()
             });
         }
 
         async function init() {
-            state.name = prompt("Grower Name?") || "Grower" + Math.floor(Math.random()*99);
-            document.getElementById('pName').innerText = state.name;
+            game.name = prompt("Enter Grower Name:") || "User" + Math.floor(Math.random()*999);
+            document.getElementById('ui-name').innerText = game.name;
 
-            const { data } = await sb.from('leaderboard').select('game_state').eq('player_name', state.name).single();
-            if(data) state = data.game_state;
+            const { data } = await sb.from('leaderboard').select('game_state').eq('player_name', game.name).single();
+            if(data) game = data.game_state;
 
-            // Chat
+            // Chat Listener
             sb.channel('chat').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, p => {
-                document.getElementById('chat-box').innerHTML += `<div><b>${p.new.player_name}:</b> ${p.new.message_text}</div>`;
+                const chat = document.getElementById('chat-window');
+                chat.innerHTML += `<div><b>${p.new.player_name}:</b> ${p.new.message_text}</div>`;
+                chat.scrollTop = chat.scrollHeight;
             }).subscribe();
 
+            // Game Loop
             setInterval(() => {
-                const hps = (state.crew.trimmers.count * 1 + state.crew.growers.count * 5) * getMult();
-                state.grams += hps / 10;
-                updateUI();
+                const hps = (game.crew.trimmer.count * 1 + game.crew.grower.count * 5) * getMult();
+                game.grams += hps / 10;
+                draw();
             }, 100);
 
-            setInterval(save, 1000); // AUTO SAVE 1 SEC
+            // Auto-Save Loop
+            setInterval(saveGame, 1000);
 
-            document.getElementById('clickBtn').onclick = () => {
-                state.grams += 1 * getMult();
-                updateUI();
-            };
-
-            document.getElementById('chatInput').onkeypress = async e => {
+            document.getElementById('plantBtn').onclick = () => { game.grams += 1 * getMult(); draw(); };
+            document.getElementById('chat-input').onkeypress = async e => {
                 if(e.key === 'Enter' && e.target.value.trim()){
-                    await sb.from('messages').insert([{player_name:state.name, message_text:e.target.value}]);
+                    await sb.from('messages').insert([{player_name:game.name, message_text:e.target.value}]);
                     e.target.value = '';
                 }
             };
