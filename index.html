@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Canna Cultivator - Original Look Fixed</title>
+    <title>Canna Cultivator - Prestige Edition</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://www.paypal.com/sdk/js?client-id=sb&currency=GBP"></script>
     <style>
@@ -14,29 +14,21 @@
         .game-title { font-size: clamp(1.8rem, 5vw, 3rem); color: #76ff03; text-shadow: 2px 2px 0 #1b3012; margin-bottom: 5px; }
         .exp-container { width: 100%; background: #1b3012; height: 20px; border-radius: 10px; margin: 10px 0; overflow: hidden; border: 1px solid #4caf50; }
         .exp-bar { height: 100%; background: linear-gradient(90deg, #76ff03, #4caf50); width: 0%; transition: width 0.3s; }
-        
         .game-area { display: flex; flex-wrap: wrap; gap: 20px; }
         .main-garden { flex: 2; min-width: 280px; background: rgba(45, 70, 35, 0.5); border-radius: 15px; padding: 20px; text-align: center; border: 2px solid #4caf50; }
         .stats-sidebar, .upgrades-shop { flex: 1; min-width: 250px; background: rgba(30, 45, 20, 0.7); border-radius: 15px; padding: 15px; border: 2px solid #388e3c; }
-        
         .section-title { color: #76ff03; font-size: 1.5em; margin-bottom: 15px; border-bottom: 1px solid #4caf50; padding-bottom: 5px; }
-        
         .click-area { width: clamp(200px, 40vw, 280px); height: clamp(200px, 40vw, 280px); margin: 20px auto; background: radial-gradient(circle, rgba(118, 255, 3, 0.2) 0%, rgba(0,0,0,0) 70%); border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.05s; position: relative; font-size: 120px; user-select: none; }
         .click-area:active { transform: scale(0.92); }
-        
         .coins-display { font-size: 2.2em; color: #fff; margin: 10px 0; text-shadow: 2px 2px 0 #000; }
         .herb-count { color: #aed581; font-weight: bold; margin: 5px 0; }
         .tap-stat { color: #76ff03; font-weight: bold; font-size: 1.1em; }
-        
         .upgrade-item { background: rgba(60, 90, 40, 0.4); padding: 12px; margin: 8px 0; border-radius: 10px; border: 1px solid #4caf50; }
         .prestige-box { background: rgba(118, 255, 3, 0.1); border: 2px dashed #76ff03; padding: 15px; margin-top: 15px; border-radius: 10px; text-align: center; }
-        
         button { background: linear-gradient(to bottom, #4caf50, #2e7d32); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 5px; }
         button:disabled { opacity: 0.4; cursor: not-allowed; background: #444; }
-        
         .paypal-box { margin-top: 15px; padding: 12px; background: rgba(0,0,0,0.5); border: 2px solid #ffc107; border-radius: 12px; }
         .price-tag { display: inline-block; background: #ffc107; color: #000; padding: 2px 10px; border-radius: 5px; font-weight: bold; margin-bottom: 10px; }
-
         #chat-box { height: 150px; background: rgba(0,0,0,0.3); border-radius: 5px; margin-top: 10px; padding: 5px; overflow-y: auto; font-size: 0.8em; border: 1px solid #388e3c; }
         .leaderboard-item { display: flex; flex-direction: column; padding: 8px; border-bottom: 1px solid #388e3c; }
         .you-row { border: 1px solid #76ff03; background: rgba(118,255,3,0.1); }
@@ -64,8 +56,8 @@
                 <p class="herb-count" id="hpsDisplay">0g/sec</p>
                 
                 <div class="prestige-box">
-                    <div style="color:#76ff03; font-weight: bold;">Mastery: x<span id="prestigeMult">1</span></div>
-                    <button id="prestigeBtn" onclick="buyMaxPrestige()">Buy Max Mastery</button>
+                    <div style="color:#76ff03; font-weight: bold;">Total Multiplier: x<span id="prestigeMult">1</span></div>
+                    <button id="prestigeBtn" onclick="buyPrestige()">Buy Prestige for Multipliers</button>
                     
                     <div class="paypal-box">
                         <p style="color:#fff; font-weight: bold;">x20 PERMANENT MULTIPLIER</p>
@@ -95,7 +87,7 @@
                 <h2 class="section-title" style="margin-top:20px;">Supplies</h2>
                 <div id="shopList"></div>
                 
-                <button onclick="logout()" style="background: #7d2e2e; margin-top: 20px; font-size: 0.8em;">Logout / Reset Local</button>
+                <button onclick="logout()" style="background: #7d2e2e; margin-top: 20px; font-size: 0.8em;">Logout / Reset User</button>
             </div>
         </div>
     </div>
@@ -157,9 +149,8 @@
             document.getElementById('stackCount').innerText = state.donations;
 
             const pCost = 10000 * (state.prestige ** 2);
-            const pMax = calculateMax(pCost, state.grams, 2.0);
-            document.getElementById('prestigeBtn').innerText = pMax.count > 0 ? `Buy Max Mastery: +${pMax.count} (${pMax.totalCost.toLocaleString()}g)` : `Need ${pCost.toLocaleString()}g`;
-            document.getElementById('prestigeBtn').disabled = pMax.count === 0;
+            document.getElementById('prestigeBtn').innerText = state.grams >= pCost ? `Buy Prestige (+1): ${pCost.toLocaleString()}g` : `Need ${pCost.toLocaleString()}g`;
+            document.getElementById('prestigeBtn').disabled = state.grams < pCost;
 
             const req = (state.level ** 2) * 1000;
             document.getElementById('levelDisplay').innerText = state.level;
@@ -180,22 +171,27 @@
             `).join('');
         }
 
+        function buyPrestige() {
+            const cost = 10000 * (state.prestige ** 2);
+            if (state.grams >= cost) {
+                // Apply prestige
+                state.prestige++;
+                // RESET NON-PERMANENT STATS
+                state.grams = 0;
+                state.upgrades = []; // Resets Shears, Lights, etc.
+                state.crew.trimmers = { n: 0, c: 20, p: 1 };
+                state.crew.growers = { n: 0, c: 150, p: 5 };
+                updateUI();
+                alert("Prestige Successful! Your multiplier has increased, but your garden has been reset.");
+            }
+        }
+
         function buyMaxCrew(id) {
             const max = calculateMax(state.crew[id].c, state.grams, 1.25);
             if(max.count > 0) {
                 state.grams -= max.totalCost;
                 state.crew[id].n += max.count;
                 for(let i=0; i<max.count; i++) state.crew[id].c = Math.floor(state.crew[id].c * 1.25);
-                updateUI();
-            }
-        }
-
-        function buyMaxPrestige() {
-            const pCost = 10000 * (state.prestige ** 2);
-            const max = calculateMax(pCost, state.grams, 2.0);
-            if(max.count > 0) {
-                state.grams -= max.totalCost;
-                state.prestige += max.count;
                 updateUI();
             }
         }
