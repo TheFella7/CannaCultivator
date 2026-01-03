@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Canna Cultivator - Original Look (New Logic)</title>
+    <title>Canna Cultivator - Original Look Fixed</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://www.paypal.com/sdk/js?client-id=sb&currency=GBP"></script>
     <style>
@@ -26,19 +26,21 @@
         
         .coins-display { font-size: 2.2em; color: #fff; margin: 10px 0; text-shadow: 2px 2px 0 #000; }
         .herb-count { color: #aed581; font-weight: bold; margin: 5px 0; }
-        .tap-earned-display { color: #76ff03; font-size: 1.2em; font-weight: bold; margin-bottom: 5px; display: block; }
+        .tap-stat { color: #76ff03; font-weight: bold; font-size: 1.1em; }
         
         .upgrade-item { background: rgba(60, 90, 40, 0.4); padding: 12px; margin: 8px 0; border-radius: 10px; border: 1px solid #4caf50; }
         .prestige-box { background: rgba(118, 255, 3, 0.1); border: 2px dashed #76ff03; padding: 15px; margin-top: 15px; border-radius: 10px; text-align: center; }
         
         button { background: linear-gradient(to bottom, #4caf50, #2e7d32); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 5px; }
         button:disabled { opacity: 0.4; cursor: not-allowed; background: #444; }
-        .purchased-badge { color: #76ff03; font-weight: bold; font-style: italic; font-size: 0.9em; }
         
+        .paypal-box { margin-top: 15px; padding: 12px; background: rgba(0,0,0,0.5); border: 2px solid #ffc107; border-radius: 12px; }
+        .price-tag { display: inline-block; background: #ffc107; color: #000; padding: 2px 10px; border-radius: 5px; font-weight: bold; margin-bottom: 10px; }
+
         #chat-box { height: 150px; background: rgba(0,0,0,0.3); border-radius: 5px; margin-top: 10px; padding: 5px; overflow-y: auto; font-size: 0.8em; border: 1px solid #388e3c; }
         .leaderboard-item { display: flex; flex-direction: column; padding: 8px; border-bottom: 1px solid #388e3c; }
-        .you-row { color: #76ff03; font-weight: bold; background: rgba(118, 255, 3, 0.1); border: 1px solid #76ff03; }
-        .lb-stats { display: flex; justify-content: space-between; font-size: 0.85em; opacity: 0.9; }
+        .you-row { border: 1px solid #76ff03; background: rgba(118,255,3,0.1); }
+        .lb-stats { display: flex; justify-content: space-between; font-size: 0.85em; }
     </style>
 </head>
 <body>
@@ -56,7 +58,7 @@
         <div class="game-area">
             <div class="main-garden">
                 <h2 class="section-title">Cultivation</h2>
-                <div class="tap-earned-display">Earned per tap: +<span id="tapEarned">1</span>g</div>
+                <div class="tap-stat">Tap Value: +<span id="tapEarned">1</span>g</div>
                 <div class="click-area" id="clickArea">🌿</div>
                 <div class="coins-display" id="coinsDisplay">0 Grams</div>
                 <p class="herb-count" id="hpsDisplay">0g/sec</p>
@@ -65,8 +67,10 @@
                     <div style="color:#76ff03; font-weight: bold;">Mastery: x<span id="prestigeMult">1</span></div>
                     <button id="prestigeBtn" onclick="buyMaxPrestige()">Buy Max Mastery</button>
                     
-                    <div style="margin-top:15px; padding:10px; background:rgba(0,0,0,0.4); border-radius:10px; border:1px solid #ffc107;">
-                        <p style="color:#fff; font-size:0.8em; font-weight:bold;">DONATION x20 BOOST (STACKABLE)</p>
+                    <div class="paypal-box">
+                        <p style="color:#fff; font-weight: bold;">x20 PERMANENT MULTIPLIER</p>
+                        <div class="price-tag">£4.99</div>
+                        <p style="color:#ffc107; font-size: 0.8em; margin-bottom: 10px;">Stacks Owned: <span id="stackCount">0</span></p>
                         <div id="paypal-button-container"></div>
                     </div>
                 </div>
@@ -74,7 +78,7 @@
 
             <div class="stats-sidebar">
                 <h2 class="section-title">Leaderboard</h2>
-                <div id="leaderboard" class="leaderboard-list"></div>
+                <div id="leaderboard" class="leaderboard-list">Loading...</div>
 
                 <h2 class="section-title" style="margin-top:20px;">Global Chat</h2>
                 <div id="chat-box"></div>
@@ -127,7 +131,8 @@
                 const u = staticData.upgrades.find(x => x.id === id);
                 if(u) { if(u.type === 'tap') tap *= u.x; else auto *= u.x; }
             });
-            const global = sMult * state.prestige * (1 + (state.level * 0.05)) * (1 + (state.donations * 20));
+            const donationMult = 1 + (state.donations * 20);
+            const global = sMult * state.prestige * (1 + (state.level * 0.05)) * donationMult;
             return { tap: tap * global, auto: auto * global };
         }
 
@@ -149,32 +154,23 @@
             document.getElementById('hpsDisplay').innerText = hps.toLocaleString() + "g/sec";
             document.getElementById('tapEarned').innerText = m.tap.toLocaleString();
             document.getElementById('prestigeMult').innerText = state.prestige;
+            document.getElementById('stackCount').innerText = state.donations;
 
-            // Mastery Max
             const pCost = 10000 * (state.prestige ** 2);
             const pMax = calculateMax(pCost, state.grams, 2.0);
             document.getElementById('prestigeBtn').innerText = pMax.count > 0 ? `Buy Max Mastery: +${pMax.count} (${pMax.totalCost.toLocaleString()}g)` : `Need ${pCost.toLocaleString()}g`;
             document.getElementById('prestigeBtn').disabled = pMax.count === 0;
 
-            // EXP
             const req = (state.level ** 2) * 1000;
             document.getElementById('levelDisplay').innerText = state.level;
             document.getElementById('expBar').style.width = `${(state.exp / req) * 100}%`;
             document.getElementById('expText').innerText = `${Math.floor(state.exp).toLocaleString()} / ${req.toLocaleString()} EXP`;
 
-            // Crew Buttons (Max Logic)
             document.getElementById('crewButtons').innerHTML = Object.keys(state.crew).map(id => {
                 const max = calculateMax(state.crew[id].c, state.grams, 1.25);
-                return `
-                <div class="upgrade-item">
-                    <b>${id.toUpperCase()}</b> (${state.crew[id].n})
-                    <button onclick="buyMaxCrew('${id}')" ${max.count === 0 ? 'disabled' : ''}>
-                        ${max.count > 0 ? `Buy Max (+${max.count}): ${max.totalCost.toLocaleString()}g` : `Next: ${state.crew[id].c}g`}
-                    </button>
-                </div>`;
+                return `<div class="upgrade-item"><b>${id.toUpperCase()}</b> (${state.crew[id].n})<button onclick="buyMaxCrew('${id}')" ${max.count === 0 ? 'disabled' : ''}>${max.count > 0 ? `Buy Max (+${max.count}): ${max.totalCost.toLocaleString()}g` : `Next: ${state.crew[id].c}g`}</button></div>`;
             }).join('');
 
-            // Strains & Supplies
             document.getElementById('strainList').innerHTML = staticData.strains.map(s => `
                 <div class="upgrade-item"><b>${s.name} (x${s.x})</b>${state.strains.includes(s.id) ? '<br><span class="purchased-badge">PURCHASED</span>' : `<button onclick="buyStrain('${s.id}')" ${state.grams < s.cost ? 'disabled' : ''}>Buy Once: ${s.cost}g</button>`}</div>
             `).join('');
@@ -215,27 +211,22 @@
         }
 
         async function init() {
-            // Persistent Username
             let savedName = localStorage.getItem('cannaUsername');
             if(!savedName) {
-                savedName = prompt("Enter Grower Name:");
-                if(!savedName) savedName = "User" + Math.floor(Math.random()*99);
+                savedName = prompt("Enter Grower Name:") || "User" + Math.floor(Math.random()*99);
                 localStorage.setItem('cannaUsername', savedName);
             }
             state.name = savedName;
             document.getElementById('playerNameDisplay').innerText = state.name;
 
-            // Load Cloud Progress
             const { data } = await sb.from('leaderboard').select('game_state').eq('player_name', state.name).single();
             if(data) state = data.game_state;
 
-            // PayPal
             paypal.Buttons({
                 createOrder: (d, a) => a.order.create({ purchase_units: [{ amount: { value: '4.99' } }] }),
                 onApprove: (d, a) => a.order.capture().then(() => { state.donations++; updateUI(); })
             }).render('#paypal-button-container');
 
-            // Game Loop
             setInterval(() => {
                 const m = getMults();
                 const hps = (state.crew.trimmers.n * 1 + state.crew.growers.n * 5) * m.auto;
@@ -245,20 +236,27 @@
                 updateUI();
             }, 100);
 
-            // Auto-Save
             setInterval(() => {
-                sb.from('leaderboard').upsert({ player_name: state.name, grams: Math.floor(state.grams), game_state: state, player_level: state.level, last_active: new Date() });
+                sb.from('leaderboard').upsert({ 
+                    player_name: state.name, 
+                    grams: Math.floor(state.grams), 
+                    game_state: state, 
+                    player_level: state.level, 
+                    last_active: new Date() 
+                });
             }, 1000);
 
-            // Leaderboard
             setInterval(async () => {
-                const { data } = await sb.from('leaderboard').select('player_name, player_level, grams').order('grams', {ascending:false}).limit(5);
-                if(data) document.getElementById('leaderboard').innerHTML = data.map((p,i)=>`<div class="leaderboard-item ${p.player_name === state.name ? 'you-row' : ''}"><b>#${i+1} ${p.player_name}</b><div class="lb-stats"><span>Level ${p.player_level}</span><span>${Math.floor(p.grams).toLocaleString()}g</span></div></div>`).join('');
+                const { data } = await sb.from('leaderboard').select('player_name, player_level, grams').order('grams', {ascending:false}).limit(10);
+                if(data) document.getElementById('leaderboard').innerHTML = data.map((p,i)=>`
+                    <div class="leaderboard-item ${p.player_name === state.name ? 'you-row' : ''}">
+                        <b>#${i+1} ${p.player_name}</b>
+                        <div class="lb-stats"><span>Level ${p.player_level}</span><span>${Math.floor(p.grams).toLocaleString()}g</span></div>
+                    </div>`).join('');
             }, 5000);
 
             document.getElementById('clickArea').onclick = () => { state.grams += getMults().tap; state.exp += 15 * state.prestige; updateUI(); };
             
-            // Chat
             document.getElementById('chatInput').onkeypress = async e => {
                 if(e.key === 'Enter' && e.target.value.trim()){
                     await sb.from('messages').insert([{player_name:state.name, message_text:e.target.value}]);
@@ -272,7 +270,7 @@
             }).subscribe();
         }
 
-        function logout() { if(confirm("Change user?")) { localStorage.removeItem('cannaUsername'); location.reload(); } }
+        function logout() { if(confirm("Logout and change user?")) { localStorage.removeItem('cannaUsername'); location.reload(); } }
         window.onload = init;
     </script>
 </body>
