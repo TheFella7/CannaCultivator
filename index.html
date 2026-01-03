@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Canna Cultivator - Infinite Edition</title>
+    <title>Canna Cultivator - Infinite Prestige</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://www.paypal.com/sdk/js?client-id=sb&currency=GBP"></script>
     <style>
@@ -51,8 +51,8 @@
                 <h2 class="section-title">Cultivation</h2>
                 <div class="tap-stat">Tap Value: +<span id="tapEarned">1</span>g</div>
                 <div class="click-area" id="clickArea">🌿</div>
-                <div class="coins-display" id="coinsDisplay">0 Grams</div>
-                <p class="herb-count" id="hpsDisplay">0g/sec</p>
+                <div class="coins-display" id="coinsDisplay">Grams</div>
+                <p class="herb-count" id="hpsDisplay">g/sec</p>
                 
                 <div class="prestige-box">
                     <div style="color:#76ff03; font-weight: bold;">Total Multiplier: x<span id="prestigeMult">1</span></div>
@@ -115,8 +115,9 @@
             ]
         };
 
-        // --- NUMBER FORMATTING ---
         function formatNum(n) {
+            if (n < 1 && n > 0) return n.toFixed(2);
+            if (n === 0) return ""; 
             if (n < 1000) return Math.floor(n).toString();
             const suffixes = ["", "k", "m", "b", "t", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"];
             const suffixNum = Math.floor(("" + Math.floor(n)).length / 3);
@@ -141,43 +142,31 @@
             let count = 0;
             let totalCost = 0;
             let nextPrestige = currentPrestige;
-            
             while (true) {
-                // Harder scaling for prestige
-                let cost = 50000 * Math.pow(nextPrestige, 2.5);
+                // Scaling: 100k * P^3
+                let cost = 100000 * Math.pow(nextPrestige, 3);
                 if (balance >= totalCost + cost) {
                     totalCost += cost;
                     nextPrestige++;
                     count++;
-                } else {
-                    break;
-                }
-            }
-            return { count, totalCost };
-        }
-
-        function calculateMax(currentCost, balance, factor = 1.35) {
-            let count = 0, totalCost = 0, nextCost = currentCost;
-            while (balance >= totalCost + nextCost) {
-                totalCost += nextCost;
-                nextCost = Math.floor(nextCost * factor);
-                count++;
+                } else { break; }
             }
             return { count, totalCost };
         }
 
         function updateUI() {
             const m = getMults();
-            const hps = (state.crew.trimmers.n * state.crew.trimmers.p + state.crew.growers.n * state.crew.growers.p) * m.auto;
+            const hps = (state.crew.trimmers.n * 1 + state.crew.growers.n * 5) * m.auto;
             
-            document.getElementById('coinsDisplay').innerText = formatNum(state.grams) + " Grams";
-            document.getElementById('hpsDisplay').innerText = formatNum(hps) + "g/sec";
+            // Removed the 0 before Grams by ensuring formatNum handles 0 appropriately
+            document.getElementById('coinsDisplay').innerText = (state.grams > 0 ? formatNum(state.grams) : "") + " Grams";
+            document.getElementById('hpsDisplay').innerText = (hps > 0 ? formatNum(hps) : "") + " g/sec";
             document.getElementById('tapEarned').innerText = formatNum(m.tap);
             document.getElementById('prestigeMult').innerText = formatNum(state.prestige);
             document.getElementById('stackCount').innerText = state.donations;
 
             const pMax = calculateMaxPrestige(state.prestige, state.grams);
-            const nextCost = 50000 * Math.pow(state.prestige, 2.5);
+            const nextCost = 100000 * Math.pow(state.prestige, 3);
             
             if (pMax.count > 0) {
                 document.getElementById('prestigeBtn').innerText = `Buy Prestige (+${pMax.count}): ${formatNum(pMax.totalCost)}g`;
@@ -187,19 +176,21 @@
                 document.getElementById('prestigeBtn').disabled = true;
             }
 
-            // Harder leveling: cubic growth
             const req = (Math.pow(state.level, 3)) * 1500;
             document.getElementById('levelDisplay').innerText = state.level;
             document.getElementById('expBar').style.width = `${(state.exp / req) * 100}%`;
             document.getElementById('expText').innerText = `${formatNum(state.exp)} / ${formatNum(req)} EXP`;
 
+            // Rendering Crew and Items
+            const crewFactor = 1.35;
             document.getElementById('crewButtons').innerHTML = Object.keys(state.crew).map(id => {
-                const max = calculateMax(state.crew[id].c, state.grams, 1.35);
-                return `<div class="upgrade-item"><b>${id.toUpperCase()}</b> (${state.crew[id].n})<button onclick="buyMaxCrew('${id}')" ${max.count === 0 ? 'disabled' : ''}>${max.count > 0 ? `Buy Max (+${max.count}): ${formatNum(max.totalCost)}g` : `Next: ${formatNum(state.crew[id].c)}g`}</button></div>`;
+                let count = 0, total = 0, next = state.crew[id].c;
+                while (state.grams >= total + next) { total += next; next = Math.floor(next * crewFactor); count++; }
+                return `<div class="upgrade-item"><b>${id.toUpperCase()}</b> (${state.crew[id].n})<button onclick="buyMaxCrew('${id}')" ${count === 0 ? 'disabled' : ''}>${count > 0 ? `Buy Max (+${count}): ${formatNum(total)}g` : `Next: ${formatNum(state.crew[id].c)}g`}</button></div>`;
             }).join('');
 
             document.getElementById('strainList').innerHTML = staticData.strains.map(s => `
-                <div class="upgrade-item"><b>${s.name} (x${s.x})</b>${state.strains.includes(s.id) ? '<br><span class="purchased-badge">PURCHASED</span>' : `<button onclick="buyStrain('${s.id}')" ${state.grams < s.cost ? 'disabled' : ''}>Buy Once: ${formatNum(s.cost)}g</button>`}</div>
+                <div class="upgrade-item"><b>${s.name} (x${s.x})</b>${state.strains.includes(s.id) ? '<br><span class="purchased-badge">OWNED</span>' : `<button onclick="buyStrain('${s.id}')" ${state.grams < s.cost ? 'disabled' : ''}>Buy: ${formatNum(s.cost)}g</button>`}</div>
             `).join('');
 
             document.getElementById('shopList').innerHTML = staticData.upgrades.map(u => `
@@ -216,16 +207,18 @@
                 state.crew.trimmers = { n: 0, c: 20, p: 1 };
                 state.crew.growers = { n: 0, c: 150, p: 5 };
                 updateUI();
-                alert(`Ascension! Multiplier increased by ${pMax.count}.`);
+                alert(`Ascended! Total Multiplier is now x${formatNum(state.prestige)}`);
             }
         }
 
         function buyMaxCrew(id) {
-            const max = calculateMax(state.crew[id].c, state.grams, 1.35);
-            if(max.count > 0) {
-                state.grams -= max.totalCost;
-                state.crew[id].n += max.count;
-                for(let i=0; i<max.count; i++) state.crew[id].c = Math.floor(state.crew[id].c * 1.35);
+            const factor = 1.35;
+            let total = 0, next = state.crew[id].c, count = 0;
+            while (state.grams >= total + next) { total += next; next = Math.floor(next * factor); count++; }
+            if(count > 0) {
+                state.grams -= total;
+                state.crew[id].n += count;
+                state.crew[id].c = next;
                 updateUI();
             }
         }
@@ -243,7 +236,7 @@
         async function init() {
             let savedName = localStorage.getItem('cannaUsername');
             if(!savedName) {
-                savedName = prompt("Enter Grower Name:") || "User" + Math.floor(Math.random()*99);
+                savedName = prompt("Grower Name:") || "Grower" + Math.floor(Math.random()*99);
                 localStorage.setItem('cannaUsername', savedName);
             }
             state.name = savedName;
@@ -261,7 +254,7 @@
                 const m = getMults();
                 const hps = (state.crew.trimmers.n * 1 + state.crew.growers.n * 5) * m.auto;
                 state.grams += hps / 10;
-                state.exp += (hps / 500); // Slower EXP gain
+                state.exp += (hps / 600);
                 const req = (Math.pow(state.level, 3)) * 1500;
                 if(state.exp >= req) { state.exp -= req; state.level++; }
                 updateUI();
@@ -269,11 +262,7 @@
 
             setInterval(async () => {
                 await sb.from('leaderboard').upsert({ 
-                    player_name: state.name, 
-                    grams: Math.floor(state.grams), 
-                    game_state: state, 
-                    player_level: state.level, 
-                    last_active: new Date().toISOString()
+                    player_name: state.name, grams: Math.floor(state.grams), game_state: state, player_level: state.level, last_active: new Date().toISOString()
                 }, { onConflict: 'player_name' });
             }, 2000);
 
@@ -286,7 +275,7 @@
                     </div>`).join('');
             }, 5000);
 
-            document.getElementById('clickArea').onclick = () => { state.grams += getMults().tap; state.exp += (10 * state.prestige); updateUI(); };
+            document.getElementById('clickArea').onclick = () => { state.grams += getMults().tap; state.exp += (8 * state.prestige); updateUI(); };
             
             document.getElementById('chatInput').onkeypress = async e => {
                 if(e.key === 'Enter' && e.target.value.trim()){
