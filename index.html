@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Canna Cultivator - Deluxe</title>
+    <title>Canna Cultivator - Stackable Edition</title>
     <script src="https://www.paypal.com/sdk/js?client-id=sb&currency=GBP"></script>
     <style>
         * {
@@ -224,14 +224,13 @@
                 <p class="herb-count" id="hpsDisplay">0g/sec</p>
 
                 <div class="prestige-box" id="prestigeBox">
-                    <div style="color:#76ff03; font-weight: bold; font-size: 1.2em;">Combined Multiplier: x<span id="prestigeMult">1</span></div>
+                    <div style="color:#76ff03; font-weight: bold;">Mastery Multiplier: x<span id="prestigeMult">1</span></div>
                     <button id="prestigeBtn" onclick="prestigeMax()">Buy Max Prestige</button>
                     
                     <div class="paypal-container" id="donationArea">
-                        <p style="color:#fff; font-weight: bold; margin-bottom: 2px;">STACKABLE MASTER BOOST</p>
+                        <p style="color:#fff; font-weight: bold; margin-bottom: 2px;">PERMANENT x20 BOOST (STACKABLE)</p>
                         <div class="price-badge">ONLY £4.99</div>
-                        <p style="color:#aed581; font-size: 0.9em; margin-bottom: 5px;">Adds +x20 Permanently!</p>
-                        <p style="color:#fff; font-size: 0.8em; margin-bottom: 10px;">Purchase Bonus: <span id="currentStackDisplay" style="color:#76ff03; font-weight:bold;">x1</span></p>
+                        <p style="color:#aed581; font-size: 0.8em; margin-bottom: 10px;">Current Stacks: <span id="stackCount">0</span></p>
                         <div id="paypal-button-container"></div>
                     </div>
                 </div>
@@ -275,11 +274,11 @@
             }
         }
 
-        const VERSION = "3.0-STACKABLE";
+        const VERSION = "3.1";
         let gameState = {
             v: VERSION, playerName: "", grams: 0, totalHarvested: 0, totalClicks: 0,
             prestigeLevel: 1, level: 1, exp: 0,
-            donations: 0, // Now a counter instead of boolean
+            donations: 0, // Changed from boolean to number
             multipliers: { tap: 1, auto: 1, strain: 1 },
             crew: {
                 trimmers: { count: 0, cost: 20, power: 1 },
@@ -310,8 +309,8 @@
         ];
 
         function getDonationMult() {
-            // Starts at 1, adds 20 for every purchase
-            return 1 + ((gameState.donations || 0) * 20);
+            // Formula: Base 1 + (20 per donation stack)
+            return 1 + (gameState.donations * 20);
         }
 
         function getNextPrestigeCost(level) { return 10000 * (level ** 2); }
@@ -367,10 +366,12 @@
         function init() {
             const saved = localStorage.getItem('cannaCultivatorSave');
             if(saved) {
-                const parsed = JSON.parse(saved);
-                // Migration logic for old saves
-                if (parsed.donated === true) { parsed.donations = 1; delete parsed.donated; }
-                gameState = Object.assign(gameState, parsed);
+                const loadedData = JSON.parse(saved);
+                // Handle legacy saves that used 'donated: true'
+                if (loadedData.donated === true && !loadedData.donations) {
+                    loadedData.donations = 1;
+                }
+                gameState = Object.assign(gameState, loadedData);
             }
             if(!gameState.playerName) {
                 let name = prompt("Enter your Cultivator Name:", "Big Bud");
@@ -395,8 +396,8 @@
                 },
                 onApprove: function(data, actions) {
                     return actions.order.capture().then(function(details) {
-                        gameState.donations = (gameState.donations || 0) + 1;
-                        alert(`Boost Activated! Stack #${gameState.donations}: x20 Mastery added.`);
+                        gameState.donations++; // Increments stack
+                        alert('Stack added! Permanent x20 Boost increased.');
                         updateUI();
                     });
                 }
@@ -435,9 +436,9 @@
             document.getElementById('hpsDisplay').innerText = `${formatNum(hps)}g/sec`;
             document.getElementById('hpcDisplay').innerText = `${formatNum(1 * gameState.multipliers.tap * totalMult)}g/click`;
             
-            // Mastery shows combined power of Prestige and Purchases
+            // UI shows the current total multiplier
             document.getElementById('prestigeMult').innerText = formatNum(gameState.prestigeLevel * donateBonus);
-            document.getElementById('currentStackDisplay').innerText = `x${donateBonus}`;
+            document.getElementById('stackCount').innerText = gameState.donations;
             
             const reqExp = getRequiredEXP(gameState.level);
             document.getElementById('levelDisplay').innerText = gameState.level;
@@ -541,7 +542,7 @@
         }
 
         function resetGame() {
-            if(confirm("Wipe everything (including stacks)?")) {
+            if(confirm("Wipe everything?")) {
                 localStorage.removeItem('cannaCultivatorSave');
                 location.reload();
             }
@@ -553,3 +554,4 @@
     </script>
 </body>
 </html>
+
