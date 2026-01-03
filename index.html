@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Canna Cultivator - Live</title>
+    <title>Canna Cultivator - Supabase Live</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://www.paypal.com/sdk/js?client-id=sb&currency=GBP"></script>
     <style>
-        /* CSS remains exactly as you provided */
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: linear-gradient(135deg, #1a2e0e 0%, #2d5016 100%); color: #f0f7da; min-height: 100vh; padding: 10px; }
         .container { max-width: 1200px; margin: 0 auto; background: rgba(20, 30, 15, 0.9); border-radius: 20px; padding: 20px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); border: 3px solid #4caf50; }
@@ -80,13 +80,11 @@
             <div class="stats-sidebar">
                 <h2 class="section-title">Leaderboard</h2>
                 <div id="leaderboard" class="leaderboard-list">
-                    <div class="chat-message system">Loading global rankings...</div>
+                    <div class="chat-message system">Connecting to global servers...</div>
                 </div>
                 
                 <h2 class="section-title" style="margin-top:20px;">Global Chat</h2>
-                <div id="chat-box">
-                    <div class="chat-message system">System: Connecting to grow room...</div>
-                </div>
+                <div id="chat-box"></div>
                 <input type="text" id="chatInput" placeholder="Press Enter to chat..." style="width:100%; background:#1b3012; border:1px solid #4caf50; color:#fff; padding:5px; margin-top:5px; border-radius:5px;">
 
                 <h2 class="section-title" style="margin-top:20px;">The Crew</h2>
@@ -106,7 +104,12 @@
     </div>
 
     <script>
-        // --- GAME LOGIC (KEPT THE SAME) ---
+        // --- SUPABASE CONFIG ---
+        const SB_URL = 'https://klcqhrajnhegzmzfdzji.supabase.co';
+        const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsY3FocmFqbmhlZ3ptemZkemppIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njc0NTk1MjcsImV4cCI6MjA4MzAzNTUyN30.DhESHsa5cmHTvetWtEIBqGQHfiXml4eOpUteC8A-LAU';
+        const supabaseClient = supabase.createClient(SB_URL, SB_KEY);
+
+        // --- GAME STATE ---
         function formatNum(num) {
             if (num < 1000) return Math.floor(num).toLocaleString();
             const suffixes = ["", "k", "m", "b", "t"];
@@ -139,119 +142,100 @@
         function getNextPrestigeCost(level) { return 10000 * (level ** 2); }
         function getRequiredEXP(level) { return (level ** 2) * 1000; }
 
-        // --- NEW DATABASE/LIVE FUNCTIONS ---
+        // --- SUPABASE LIVE FUNCTIONS ---
 
         async function fetchLeaderboard() {
-            try {
-                // Change '/api/leaderboard' to your actual server URL
-                const response = await fetch('/api/leaderboard');
-                const data = await response.json();
+            const { data, error } = await supabaseClient
+                .from('leaderboard')
+                .select('*')
+                .order('grams', { ascending: false })
+                .limit(15);
+            
+            if (data) {
                 const lb = document.getElementById('leaderboard');
-                lb.innerHTML = '';
-                
-                data.forEach((p, i) => {
-                    const isYou = p.player_name === gameState.playerName;
-                    lb.innerHTML += `
-                        <div class="leaderboard-item ${isYou ? 'you-row' : ''}">
-                            <b>#${i+1} ${p.player_name.toUpperCase()}</b>
-                            <div class="lb-stats">
-                                <span>Lvl ${p.player_level}</span>
-                                <span>${formatNum(p.grams)}g</span>
-                            </div>
-                        </div>`;
-                });
-            } catch (e) { console.log("Offline mode: Leaderboard unavailable"); }
+                lb.innerHTML = data.map((p, i) => `
+                    <div class="leaderboard-item ${p.player_name === gameState.playerName ? 'you-row' : ''}">
+                        <b>#${i+1} ${p.player_name.toUpperCase()}</b>
+                        <div class="lb-stats">
+                            <span>Lvl ${p.player_level}</span>
+                            <span>${formatNum(p.grams)}g</span>
+                        </div>
+                    </div>`).join('');
+            }
         }
 
-        async function syncChat() {
-            try {
-                const response = await fetch('/api/chat');
-                const messages = await response.json();
-                const chatBox = document.getElementById('chat-box');
-                chatBox.innerHTML = '';
-                messages.forEach(msg => {
-                    const type = msg.is_system_msg ? 'system' : (msg.player_name === gameState.playerName ? 'user' : 'other');
-                    chatBox.innerHTML += `<div class="chat-message ${type}"><b>${msg.player_name}:</b> ${msg.message_text}</div>`;
-                });
-                chatBox.scrollTop = chatBox.scrollHeight;
-            } catch (e) { }
+        function setupRealtimeChat() {
+            // Initial fetch
+            supabaseClient.from('messages').select('*').order('created_at', {ascending: false}).limit(20)
+            .then(({data}) => {
+                if(data) data.reverse().forEach(appendChatMessage);
+            });
+
+            // Listen for new messages
+            supabaseClient.channel('schema-db-changes')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+                appendChatMessage(payload.new);
+            }).subscribe();
+        }
+
+        function appendChatMessage(msg) {
+            const chatBox = document.getElementById('chat-box');
+            const type = msg.player_name === gameState.playerName ? 'user' : 'other';
+            chatBox.innerHTML += `<div class="chat-message ${type}"><b>${msg.player_name}:</b> ${msg.message_text}</div>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
         }
 
         async function saveToDB() {
-            try {
-                await fetch('/api/save', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(gameState)
-                });
-            } catch (e) { }
+            if(!gameState.playerName) return;
+            await supabaseClient.from('leaderboard').upsert({
+                player_name: gameState.playerName,
+                grams: Math.floor(gameState.grams),
+                player_level: gameState.level,
+                last_active: new Date()
+            });
         }
 
-        // --- CORE GAME FUNCTIONS ---
+        // --- CORE GAME ENGINE ---
 
         function init() {
             const saved = localStorage.getItem('cannaCultivatorSave');
-            if(saved) {
-                gameState = Object.assign({}, gameState, JSON.parse(saved));
-            }
+            if(saved) gameState = Object.assign({}, gameState, JSON.parse(saved));
             
-            if(!gameState.playerName) {
-                gameState.playerName = prompt("Enter your grower name:", "Grower") || "Grower";
+            if(!gameState.playerName || gameState.playerName === "Grower") {
+                gameState.playerName = prompt("Enter your unique Grower Name:", "Grower" + Math.floor(Math.random()*999)) || "Grower";
             }
             
             document.getElementById('playerNameDisplay').innerText = gameState.playerName;
+            
             renderShop(); 
             updateUI();
+            setupRealtimeChat();
+            fetchLeaderboard();
             
-            setTimeout(initPayPal, 500);
             setInterval(gameLoop, 100);
-            
-            // Sync with DB
-            setInterval(fetchLeaderboard, 10000);
-            setInterval(syncChat, 5000);
-            setInterval(saveToDB, 30000); // Auto-save to DB every 30s
+            setInterval(fetchLeaderboard, 15000);
+            setInterval(saveToDB, 30000); 
 
             document.getElementById('chatInput').addEventListener('keypress', async function(e) {
                 if(e.key === 'Enter' && this.value.trim()) {
                     const msg = this.value;
                     this.value = '';
-                    // Post message to DB
-                    await fetch('/api/chat', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ playerName: gameState.playerName, message: msg })
-                    });
-                    syncChat();
+                    await supabaseClient.from('messages').insert([{ player_name: gameState.playerName, message_text: msg }]);
                 }
             });
+
+            if (typeof paypal !== 'undefined') initPayPal();
         }
 
-        function initPayPal() {
-            if (typeof paypal === 'undefined') return;
-            paypal.Buttons({
-                createOrder: (data, actions) => actions.order.create({ purchase_units: [{ amount: { value: '4.99' } }] }),
-                onApprove: (data, actions) => actions.order.capture().then(async details => {
-                    gameState.donations++;
-                    // Record purchase in DB
-                    await fetch('/api/purchase', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ playerName: gameState.playerName, orderID: data.orderID })
-                    });
-                    updateUI();
-                    alert('Boost applied!');
-                })
-            }).render('#paypal-button-container');
-        }
-
-        // Click, UpdateUI, renderShop, buyUpgrade, buyStrain, buyCrew, prestigeMax, gameLoop, resetGame 
-        // These remain exactly as provided in your original code
         function clickPlant(e) {
             const totalMult = gameState.multipliers.strain * gameState.prestigeLevel * (1 + (gameState.level * 0.05)) * getDonationMult();
             const amount = 1 * gameState.multipliers.tap * totalMult;
+            
             gameState.grams += amount; 
-            gameState.exp += 10;
+            gameState.exp += 15 * gameState.prestigeLevel; // Fixed: EXP scales with prestige so you don't stall
             gameState.totalHarvested += amount;
+            
+            checkLevelUp();
             
             const float = document.createElement('div'); 
             float.className = 'floating-num'; 
@@ -261,6 +245,14 @@
             document.body.appendChild(float); 
             setTimeout(() => float.remove(), 800);
             updateUI();
+        }
+
+        function checkLevelUp() {
+            const req = getRequiredEXP(gameState.level);
+            if(gameState.exp >= req) {
+                gameState.exp -= req; // Carry over excess EXP
+                gameState.level++;
+            }
         }
 
         function updateUI() {
@@ -279,13 +271,13 @@
             
             const reqExp = getRequiredEXP(gameState.level);
             document.getElementById('levelDisplay').innerText = gameState.level;
-            document.getElementById('expBar').style.width = `${(gameState.exp / reqExp) * 100}%`;
+            document.getElementById('expBar').style.width = `${Math.min(100, (gameState.exp / reqExp) * 100)}%`;
             document.getElementById('expText').innerText = `${formatNum(gameState.exp)} / ${formatNum(reqExp)} EXP`;
             
             const prestigeCost = getNextPrestigeCost(gameState.prestigeLevel);
             const prestigeBtn = document.getElementById('prestigeBtn');
             prestigeBtn.disabled = gameState.grams < prestigeCost;
-            prestigeBtn.textContent = prestigeBtn.disabled ? `Need ${formatNum(prestigeCost)}g` : `Buy Max Prestige (${formatNum(prestigeCost)}g)`;
+            prestigeBtn.textContent = prestigeBtn.disabled ? `Need ${formatNum(prestigeCost)}g` : `Buy Mastery Level (${formatNum(prestigeCost)}g)`;
             
             renderShop();
         }
@@ -354,11 +346,26 @@
             const hps = (gameState.crew.trimmers.count * 1 + gameState.crew.growers.count * 5) * gameState.multipliers.auto * totalMult;
             gameState.grams += hps / 10;
             gameState.totalHarvested += hps / 10;
-            if(gameState.exp >= getRequiredEXP(gameState.level)) { gameState.exp = 0; gameState.level++; }
+            
+            // Gain passive EXP from workers
+            gameState.exp += (hps / 200);
+            
+            checkLevelUp();
             updateUI();
         }
 
-        function resetGame() { if(confirm("Wipe save?")) { localStorage.clear(); location.reload(); } }
+        function initPayPal() {
+            paypal.Buttons({
+                createOrder: (data, actions) => actions.order.create({ purchase_units: [{ amount: { value: '4.99' } }] }),
+                onApprove: (data, actions) => actions.order.capture().then(details => {
+                    gameState.donations++;
+                    updateUI();
+                    alert('Boost applied!');
+                })
+            }).render('#paypal-button-container');
+        }
+
+        function resetGame() { if(confirm("Wipe local save? This won't delete your leaderboard score.")) { localStorage.clear(); location.reload(); } }
 
         document.getElementById('clickArea').addEventListener('click', clickPlant);
         setInterval(() => localStorage.setItem('cannaCultivatorSave', JSON.stringify(gameState)), 5000);
@@ -366,3 +373,4 @@
     </script>
 </body>
 </html>
+
