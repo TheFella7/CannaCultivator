@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Canna Cultivator - High Visibility</title>
+    <title>Canna Cultivator - Hardcore Leveling</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://www.paypal.com/sdk/js?client-id=AZawPulf_LA1GNqlqUE_L6PC4UqJsan33_c5L9wEcOLTRK1itpzK1QrSwueuFyPlbaEV7U0JejX_Vd70&currency=GBP"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: linear-gradient(135deg, #1a2e0e 0%, #2d5016 100%); color: #f0f7da; min-height: 100vh; padding: 0 10px 10px 10px; }
         
-        /* NEW HIGH VISIBILITY STATUS BAR */
         .top-status-bar {
             background: rgba(0, 0, 0, 0.7);
             border-bottom: 2px solid #4caf50;
@@ -53,7 +52,7 @@
 </head>
 <body>
     <div class="top-status-bar">
-        <div class="status-item">📅 <span id="liveDate">01/01/2026</span></div>
+        <div class="status-item">📅 <span id="liveDate">03/01/2026</span></div>
         <div class="status-item">🕒 <span id="liveClock">00:00:00</span></div>
         <div class="status-item">👥 <span id="onlineCount">1</span> Online</div>
     </div>
@@ -65,7 +64,7 @@
             <div style="margin-top: 10px;">
                 <span>Level: <b id="levelDisplay">1</b></span>
                 <div class="exp-container"><div class="exp-bar" id="expBar"></div></div>
-                <small id="expText">0 / 1,500 EXP</small>
+                <small id="expText">0 / 5,000 EXP</small>
             </div>
         </div>
 
@@ -160,6 +159,11 @@
             return { tap: tap * global, auto: auto * global };
         }
 
+        // LONGER LEVEL UP CALCULATION
+        function getExpRequired(lvl) {
+            return Math.floor(Math.pow(lvl, 3.5)) * 5000;
+        }
+
         function updateUI() {
             const m = getMults();
             const hps = (state.crew.trimmers.n * 1 + state.crew.growers.n * 5) * m.auto;
@@ -175,7 +179,7 @@
             document.getElementById('prestigeBtn').innerText = pMax > 0 ? `Buy Prestige (+${pMax}): ${formatNum(totalP)}g` : `Need ${formatNum(nextCost)}g for Next`;
             document.getElementById('prestigeBtn').disabled = pMax === 0;
 
-            const req = (Math.pow(state.level, 3)) * 1500;
+            const req = getExpRequired(state.level);
             document.getElementById('levelDisplay').innerText = state.level;
             document.getElementById('expBar').style.width = `${(state.exp / req) * 100}%`;
             document.getElementById('expText').innerText = `${formatNum(state.exp)} / ${formatNum(req)} EXP`;
@@ -254,12 +258,11 @@
                 state.grams += hps / 10;
                 const autoExp = (hps / 10) * state.prestige;
                 state.exp += autoExp;
-                const req = (Math.pow(state.level, 3)) * 1500;
+                const req = getExpRequired(state.level);
                 if(state.exp >= req) { state.exp -= req; state.level++; }
                 updateUI();
             }, 100);
 
-            // Updated Visual Timers
             setInterval(() => {
                 const now = new Date();
                 document.getElementById('liveClock').innerText = now.toLocaleTimeString();
@@ -286,7 +289,7 @@
 
             document.getElementById('clickArea').onclick = () => { 
                 state.grams += getMults().tap; 
-                state.exp += (15 * state.prestige);
+                state.exp += (25 * state.prestige);
                 updateUI(); 
             };
             
