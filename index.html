@@ -10,17 +10,18 @@
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: linear-gradient(135deg, #1a2e0e 0%, #2d5016 100%); color: #f0f7da; min-height: 100vh; padding: 0 10px 10px 10px; position: relative; }
         
-        /* Floating Message Notification */
+        /* Fixed Floating Message Notification */
         #msgNotification {
-            position: fixed; top: 15px; left: 50%; transform: translateX(-50%);
-            background: #76ff03; color: #1a2e0e; padding: 8px 20px; border-radius: 50px;
-            font-weight: bold; font-size: 1rem; z-index: 10000; display: none;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.6); cursor: pointer;
-            border: 2px solid #fff; animation: bounceIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+            background: #76ff03; color: #1a2e0e; padding: 10px 25px; border-radius: 50px;
+            font-weight: bold; font-size: 1.1rem; z-index: 99999; display: none;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.8); cursor: pointer;
+            border: 2px solid #fff; animation: popPulse 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        @keyframes bounceIn { 
-            0% { transform: translateX(-50%) translateY(-100px); opacity: 0; }
-            100% { transform: translateX(-50%) translateY(0); opacity: 1; }
+        @keyframes popPulse { 
+            0% { transform: translateX(-50%) scale(0); }
+            80% { transform: translateX(-50%) scale(1.1); }
+            100% { transform: translateX(-50%) scale(1); }
         }
 
         .top-status-bar { background: rgba(0, 0, 0, 0.7); border-bottom: 2px solid #4caf50; margin: 0 -10px 15px -10px; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; color: #76ff03; box-shadow: 0 2px 10px rgba(0,0,0,0.5); font-weight: bold; }
@@ -44,7 +45,7 @@
         button { background: linear-gradient(to bottom, #4caf50, #2e7d32); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 5px; }
         button:disabled { opacity: 0.4; cursor: not-allowed; background: #444; }
         .paypal-box { margin-top: 15px; padding: 12px; background: rgba(0,0,0,0.5); border: 2px solid #ffc107; border-radius: 12px; }
-        #chat-box { height: 150px; background: rgba(0,0,0,0.3); border-radius: 5px; margin-top: 10px; padding: 5px; overflow-y: auto; font-size: 0.8em; border: 1px solid #388e3c; color: #fff; scroll-behavior: smooth; }
+        #chat-box { height: 180px; background: rgba(0,0,0,0.3); border-radius: 5px; margin-top: 10px; padding: 8px; overflow-y: auto; font-size: 0.85em; border: 1px solid #388e3c; color: #fff; scroll-behavior: smooth; }
         .leaderboard-item { display: flex; flex-direction: column; padding: 8px; border-bottom: 1px solid #388e3c; }
         .you-row { border: 1px solid #76ff03; background: rgba(118,255,3,0.1); }
         .lb-stats { display: flex; justify-content: space-between; font-size: 0.85em; }
@@ -127,11 +128,10 @@
         let lastClickTime = 0;
         const MIN_DELAY = 60;
 
-        // Notification Logic
         function checkChatRead() {
             const cb = document.getElementById('chat-box');
-            // If scrolled to bottom
-            if (cb.scrollHeight - cb.scrollTop <= cb.clientHeight + 30) {
+            // If scrolled near bottom
+            if (cb.scrollHeight - cb.scrollTop <= cb.clientHeight + 60) {
                 unreadCount = 0;
                 document.getElementById('msgNotification').style.display = 'none';
             }
@@ -153,10 +153,7 @@
             return shortValue + suffixes[suffixNum];
         }
 
-        function getGlobalBoost() {
-            return state.prestige * (1 + (state.level * 0.1)) * Math.pow(20, state.donations);
-        }
-
+        function getGlobalBoost() { return state.prestige * (1 + (state.level * 0.1)) * Math.pow(20, state.donations); }
         function getExpRequired(lvl) { return Math.floor(Math.pow(lvl, 3.5)) * 5000; }
 
         function updateUI() {
@@ -257,14 +254,17 @@
             } catch(e) {}
 
             sb.channel('chat_channel').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, p => {
-                const isAtBottom = cb.scrollHeight - cb.scrollTop <= cb.clientHeight + 40;
+                const cb = document.getElementById('chat-box');
+                const isAtBottom = cb.scrollHeight - cb.scrollTop <= cb.clientHeight + 60;
+                const isOtherPlayer = p.new.player_name !== state.name;
+                
                 cb.innerHTML += `<div><b>${p.new.player_name}:</b> ${p.new.message_text}</div>`;
                 
                 if (isAtBottom) {
                     cb.scrollTop = cb.scrollHeight;
                     unreadCount = 0;
                     document.getElementById('msgNotification').style.display = 'none';
-                } else {
+                } else if (isOtherPlayer) {
                     unreadCount++;
                     document.getElementById('unreadCount').innerText = unreadCount;
                     document.getElementById('msgNotification').style.display = 'block';
@@ -279,8 +279,7 @@
             };
 
             setInterval(() => {
-                let bh = 0;
-                Object.values(state.crew).forEach(c => bh += c.n * c.p);
+                let bh = 0; Object.values(state.crew).forEach(c => bh += c.n * c.p);
                 Object.values(state.strains).forEach(s => bh += s.n * s.p);
                 const boost = getGlobalBoost();
                 state.grams += (bh * boost) / 10; state.exp += ((bh * boost) / 10) * state.prestige;
