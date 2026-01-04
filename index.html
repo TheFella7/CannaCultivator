@@ -135,11 +135,9 @@
 
         function updateUI() {
             const boost = getGlobalBoost();
-            
             let baseHps = 0;
             if (state.crew) Object.values(state.crew).forEach(c => baseHps += c.n * c.p);
             if (state.strains) Object.values(state.strains).forEach(s => baseHps += s.n * s.p);
-            
             const totalHps = baseHps * boost;
             const tapVal = (1 + (baseHps * 0.1)) * boost;
 
@@ -174,8 +172,7 @@
             document.getElementById('strainList').innerHTML = Object.keys(state.strains).map(id => {
                 let count = 0, total = 0, next = state.strains[id].c;
                 while (state.grams >= total + next) { total += next; next = Math.floor(next * 1.45); count++; }
-                const name = id.toUpperCase();
-                return `<div class="upgrade-item"><b>${name}</b><div class="upgrade-desc">+${state.strains[id].p}g/sec</div><div class="upgrade-desc">Grade: ${state.strains[id].n}</div><button onclick="buyMaxStrain('${id}')" ${count === 0 ? 'disabled' : ''}>${count > 0 ? `Upgrade Max (+${count})` : `Next: ${formatNum(state.strains[id].c)}`}</button></div>`;
+                return `<div class="upgrade-item"><b>${id.toUpperCase()}</b><div class="upgrade-desc">+${state.strains[id].p}g/sec</div><div class="upgrade-desc">Grade: ${state.strains[id].n}</div><button onclick="buyMaxStrain('${id}')" ${count === 0 ? 'disabled' : ''}>${count > 0 ? `Upgrade Max (+${count})` : `Next: ${formatNum(state.strains[id].c)}`}</button></div>`;
             }).join('');
         }
 
@@ -183,20 +180,10 @@
             let pMax = 0, totalP = 0, tempP = state.prestige;
             while(state.grams >= totalP + (100000 * Math.pow(tempP, 3))) { totalP += (100000 * Math.pow(tempP, 3)); tempP++; pMax++; }
             if (pMax > 0) { 
-                if(confirm(`Prestige now for a +${pMax} Prestige levels? Everything except permanent multipliers will reset!`)) {
-                    state.prestige += pMax; 
-                    state.grams = 0; 
-                    state.level = 1;
-                    state.exp = 0;
-                    state.crew.trimmers = { n: 0, c: 20, p: 1 }; 
-                    state.crew.growers = { n: 0, c: 150, p: 5 }; 
-                    state.strains = {
-                        skunk: { n: 0, c: 1000, p: 25 },
-                        haze: { n: 0, c: 5000, p: 150 },
-                        kush: { n: 0, c: 25000, p: 800 },
-                        widow: { n: 0, c: 150000, p: 4000 },
-                        diesel: { n: 0, c: 1000000, p: 25000 }
-                    };
+                if(confirm(`Prestige now for a +${pMax} Prestige increase?`)) {
+                    state.prestige += pMax; state.grams = 0; state.level = 1; state.exp = 0;
+                    state.crew.trimmers = { n: 0, c: 20, p: 1 }; state.crew.growers = { n: 0, c: 150, p: 5 }; 
+                    state.strains = { skunk: { n: 0, c: 1000, p: 25 }, haze: { n: 0, c: 5000, p: 150 }, kush: { n: 0, c: 25000, p: 800 }, widow: { n: 0, c: 150000, p: 4000 }, diesel: { n: 0, c: 1000000, p: 25000 } };
                     updateUI(); 
                 }
             }
@@ -222,25 +209,17 @@
                 savedName = (prompt("Grower Name:") || "Grower" + Math.floor(Math.random()*99)).replace(/<[^>]*>/g, "").substring(0, 15); 
                 localStorage.setItem('cannaUsername', savedName); 
             }
-            state.name = savedName; 
-            document.getElementById('playerNameDisplay').innerText = state.name;
+            state.name = savedName; document.getElementById('playerNameDisplay').innerText = state.name;
 
             try {
                 const { data } = await sb.from('leaderboard').select('game_state').eq('player_name', state.name).single();
                 if(data && data.game_state) {
-                    // Migration: Convert array strains to object strains if needed
                     if (Array.isArray(data.game_state.strains)) {
-                        data.game_state.strains = {
-                            skunk: { n: 0, c: 1000, p: 25 },
-                            haze: { n: 0, c: 5000, p: 150 },
-                            kush: { n: 0, c: 25000, p: 800 },
-                            widow: { n: 0, c: 150000, p: 4000 },
-                            diesel: { n: 0, c: 1000000, p: 25000 }
-                        };
+                        data.game_state.strains = { skunk: { n: 0, c: 1000, p: 25 }, haze: { n: 0, c: 5000, p: 150 }, kush: { n: 0, c: 25000, p: 800 }, widow: { n: 0, c: 150000, p: 4000 }, diesel: { n: 0, c: 1000000, p: 25000 } };
                     }
                     state = {...state, ...data.game_state};
                 }
-            } catch(e) { console.log("New user or connection error"); }
+            } catch(e) {}
 
             if(window.paypal) {
                 paypal.Buttons({
@@ -252,10 +231,7 @@
             const chatBox = document.getElementById('chat-box');
             try {
                 const { data: history } = await sb.from('messages').select('player_name, message_text').order('created_at', {ascending: false}).limit(20);
-                if(history) {
-                    chatBox.innerHTML = history.reverse().map(m => `<div><b>${m.player_name}:</b> ${m.message_text}</div>`).join('');
-                    chatBox.scrollTop = chatBox.scrollHeight;
-                }
+                if(history) chatBox.innerHTML = history.reverse().map(m => `<div><b>${m.player_name}:</b> ${m.message_text}</div>`).join('');
             } catch(e) {}
 
             sb.channel('chat_channel').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
@@ -275,33 +251,24 @@
                 let baseHps = 0;
                 Object.values(state.crew).forEach(c => baseHps += c.n * c.p);
                 Object.values(state.strains).forEach(s => baseHps += s.n * s.p);
-                const totalHps = baseHps * getGlobalBoost();
-                state.grams += totalHps / 10; 
-                state.exp += (totalHps / 10) * state.prestige;
+                state.grams += (baseHps * getGlobalBoost()) / 10; state.exp += ((baseHps * getGlobalBoost()) / 10) * state.prestige;
                 if(state.exp >= getExpRequired(state.level)) { state.exp -= getExpRequired(state.level); state.level++; }
                 updateUI();
             }, 100);
 
             setInterval(async () => {
                 try {
-                    await sb.from('leaderboard').upsert({ 
-                        player_name: state.name, 
-                        grams: Math.floor(state.grams), 
-                        game_state: state, 
-                        player_level: state.level, 
-                        last_active: new Date().toISOString() 
-                    });
+                    await sb.from('leaderboard').upsert({ player_name: state.name, grams: Math.floor(state.grams), game_state: state, player_level: state.level, last_active: new Date().toISOString() });
                     const { count } = await sb.from('leaderboard').select('*', { count: 'exact', head: true }).gt('last_active', new Date(Date.now() - 300000).toISOString());
                     document.getElementById('onlineCount').innerText = count || 1;
-                    
-                    const { data: lb } = await sb.from('leaderboard').select('player_name, player_level, grams, game_state').order('grams', {ascending:false}).limit(10);
+                    const { data: lb } = await sb.from('leaderboard').select('player_name, player_level, game_state').order('player_level', {ascending:false}).limit(10);
                     if(lb) {
                         document.getElementById('leaderboard').innerHTML = lb.map((p,i) => {
                             const pState = p.game_state || {};
-                            const pLevel = pState.prestige || 1;
+                            const pPrest = pState.prestige || 1;
                             return `<div class="leaderboard-item ${p.player_name === state.name ? 'you-row' : ''}">
                                 <b>#${i+1} ${p.player_name}</b>
-                                <div class="lb-stats"><span>Lvl ${p.player_level} (P${pLevel})</span><span>${formatNum(p.grams)}g</span></div>
+                                <div class="lb-stats"><span>Level ${p.player_level}</span><span>Prestige ${pPrest}</span></div>
                             </div>`;
                         }).join('');
                     }
@@ -311,12 +278,10 @@
             document.getElementById('clickArea').onclick = () => { 
                 if(Date.now() - lastClickTime < MIN_DELAY) return;
                 lastClickTime = Date.now();
-                let baseHps = 0;
-                Object.values(state.crew).forEach(c => baseHps += c.n * c.p);
-                Object.values(state.strains).forEach(s => baseHps += s.n * s.p);
-                state.grams += (1 + (baseHps * 0.1)) * getGlobalBoost(); 
-                state.exp += (25 * state.prestige); 
-                updateUI(); 
+                let bh = 0;
+                Object.values(state.crew).forEach(c => bh += c.n * c.p);
+                Object.values(state.strains).forEach(s => bh += s.n * s.p);
+                state.grams += (1 + (bh * 0.1)) * getGlobalBoost(); state.exp += (25 * state.prestige); updateUI(); 
             };
             
             setInterval(() => {
