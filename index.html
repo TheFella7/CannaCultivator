@@ -24,6 +24,8 @@
         .coins-display { font-size: 2.2em; color: #fff; margin: 10px 0; text-shadow: 2px 2px 0 #000; }
         .herb-count { color: #aed581; font-weight: bold; margin: 5px 0; }
         .upgrade-item { background: rgba(60, 90, 40, 0.4); padding: 12px; margin: 8px 0; border-radius: 10px; border: 1px solid #4caf50; }
+        .upgrade-item b { display: block; color: #76ff03; }
+        .upgrade-desc { font-size: 0.8em; color: #ccc; margin-bottom: 5px; font-style: italic; }
         .prestige-box { background: rgba(118, 255, 3, 0.1); border: 2px dashed #76ff03; padding: 15px; margin-top: 15px; border-radius: 10px; text-align: center; }
         button { background: linear-gradient(to bottom, #4caf50, #2e7d32); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 5px; }
         button:disabled { opacity: 0.4; cursor: not-allowed; background: #444; }
@@ -61,8 +63,7 @@
                 <p class="herb-count" id="hpsDisplay">0 g/sec</p>
                 
                 <div class="prestige-box">
-                    <div style="color:#76ff03; font-weight: bold;">Prestige Multiplier: x<span id="prestigeMult">1</span></div>
-                    <div style="color:#ffc107; font-size: 0.9em;">Donation Boost: x<span id="donationMultDisplay">1</span></div>
+                    <div style="color:#76ff03; font-weight: bold;">Multiplier: x<span id="prestigeMult">1</span></div>
                     <button id="prestigeBtn" onclick="buyPrestige()">Buy Prestige</button>
                     <div class="paypal-box">
                         <p style="color:#fff; font-weight: bold;">x20 PERMANENT BOOST</p>
@@ -111,14 +112,14 @@
 
         const staticData = {
             upgrades: [
-                { id: 'shears', name: 'Sharp Shears', cost: 100, x: 2, type: 'tap' },
-                { id: 'lights', name: 'LED Lights', cost: 500, x: 1.5, type: 'auto' },
-                { id: 'hydro', name: 'Hydroponics', cost: 2000, x: 3, type: 'auto' }
+                { id: 'shears', name: 'Sharp Shears', cost: 100, x: 2, type: 'tap', desc: 'Double your manual tap power' },
+                { id: 'lights', name: 'LED Lights', cost: 500, x: 1.5, type: 'auto', desc: 'Auto-production speed x1.5' },
+                { id: 'hydro', name: 'Hydroponics', cost: 2000, x: 3, type: 'auto', desc: 'Auto-production speed x3' }
             ],
             strains: [
-                { id: 'skunk', name: 'Skunk #1', cost: 1000, x: 2 },
-                { id: 'haze', name: 'Purple Haze', cost: 5000, x: 5 },
-                { id: 'kush', name: 'OG Kush', cost: 25000, x: 10 }
+                { id: 'skunk', name: 'Skunk #1', cost: 1000, x: 2, desc: 'Global Multiplier x2' },
+                { id: 'haze', name: 'Purple Haze', cost: 5000, x: 5, desc: 'Global Multiplier x5' },
+                { id: 'kush', name: 'OG Kush', cost: 25000, x: 10, desc: 'Global Multiplier x10' }
             ]
         };
 
@@ -138,10 +139,10 @@
                 const u = staticData.upgrades.find(x => x.id === id);
                 if(u) { if(u.type === 'tap') tap *= u.x; else auto *= u.x; }
             });
-            // Donation boost: 20 raised to the power of number of donations (stacks x20 each time)
+            // Multiplier stacks: x20 for every donation purchase
             const donationBoost = Math.pow(20, state.donations);
             const global = state.prestige * (1 + (state.level * 0.1)) * donationBoost * sMult;
-            return { tap: tap * global, auto: auto * global, donation: donationBoost };
+            return { tap: tap * global, auto: auto * global };
         }
 
         function getExpRequired(lvl) { return Math.floor(Math.pow(lvl, 3.5)) * 5000; }
@@ -153,7 +154,6 @@
             document.getElementById('hpsDisplay').innerText = formatNum(hps) + " g/sec";
             document.getElementById('tapEarned').innerText = formatNum(m.tap);
             document.getElementById('prestigeMult').innerText = formatNum(state.prestige);
-            document.getElementById('donationMultDisplay').innerText = formatNum(m.donation);
             document.getElementById('stackCount').innerText = state.donations;
 
             const nextCost = 100000 * Math.pow(state.prestige, 3);
@@ -170,19 +170,18 @@
             document.getElementById('crewButtons').innerHTML = Object.keys(state.crew).map(id => {
                 let count = 0, total = 0, next = state.crew[id].c;
                 while (state.grams >= total + next) { total += next; next = Math.floor(next * 1.35); count++; }
-                return `<div class="upgrade-item"><b>${id.toUpperCase()}</b> (${state.crew[id].n})<button onclick="buyMaxCrew('${id}')" ${count === 0 ? 'disabled' : ''}>${count > 0 ? `Buy Max (+${count})` : `Next: ${formatNum(state.crew[id].c)}`}</button></div>`;
+                return `<div class="upgrade-item"><b>${id.toUpperCase()}</b><div class="upgrade-desc">Current: ${state.crew[id].n} members</div><button onclick="buyMaxCrew('${id}')" ${count === 0 ? 'disabled' : ''}>${count > 0 ? `Buy Max (+${count})` : `Next: ${formatNum(state.crew[id].c)}`}</button></div>`;
             }).join('');
 
-            document.getElementById('strainList').innerHTML = staticData.strains.map(s => `<div class="upgrade-item"><b>${s.name}</b><br>${state.strains.includes(s.id) ? '<span style="color:#76ff03">OWNED</span>' : `<button onclick="buyStrain('${s.id}')" ${state.grams < s.cost ? 'disabled' : ''}>${formatNum(s.cost)}g</button>`}</div>`).join('');
-            document.getElementById('shopList').innerHTML = staticData.upgrades.map(u => `<div class="upgrade-item"><b>${u.name}</b><br>${state.upgrades.includes(u.id) ? '<span style="color:#76ff03">OWNED</span>' : `<button onclick="buyUpgrade('${u.id}')" ${state.grams < u.cost ? 'disabled' : ''}>${formatNum(u.cost)}g</button>`}</div>`).join('');
+            document.getElementById('strainList').innerHTML = staticData.strains.map(s => `<div class="upgrade-item"><b>${s.name}</b><div class="upgrade-desc">${s.desc}</div>${state.strains.includes(s.id) ? '<span style="color:#76ff03">OWNED</span>' : `<button onclick="buyStrain('${s.id}')" ${state.grams < s.cost ? 'disabled' : ''}>${formatNum(s.cost)}g</button>`}</div>`).join('');
+            document.getElementById('shopList').innerHTML = staticData.upgrades.map(u => `<div class="upgrade-item"><b>${u.name}</b><div class="upgrade-desc">${u.desc}</div>${state.upgrades.includes(u.id) ? '<span style="color:#76ff03">OWNED</span>' : `<button onclick="buyUpgrade('${u.id}')" ${state.grams < u.cost ? 'disabled' : ''}>${formatNum(u.cost)}g</button>`}</div>`).join('');
         }
 
         function buyPrestige() {
             let pMax = 0, totalP = 0, tempP = state.prestige;
             while(state.grams >= totalP + (100000 * Math.pow(tempP, 3))) { totalP += (100000 * Math.pow(tempP, 3)); tempP++; pMax++; }
-            
             if (pMax > 0) { 
-                if(confirm(`Are you sure? This will reset your garden and crew, but you will gain a x${pMax} Prestige Multiplier boost!`)) {
+                if(confirm(`Prestige now for a x${pMax} boost? Everything except Permanent Multipliers will be reset!`)) {
                     state.prestige += pMax; 
                     state.grams = 0; 
                     state.level = 1;
@@ -212,7 +211,7 @@
             if(!state.upgrades.includes(id) && state.grams >= u.cost) { state.grams -= u.cost; state.upgrades.push(id); updateUI(); }
         }
 
-        function hardReset() { if(confirm("FULL DATA WIPE? This cannot be undone.")) { state.grams = 0; state.level = 1; state.exp = 0; state.prestige = 1; state.donations = 0; state.crew = { trimmers: { n: 0, c: 20, p: 1 }, growers: { n: 0, c: 150, p: 5 } }; state.upgrades = []; state.strains = []; updateUI(); } }
+        function hardReset() { if(confirm("Full Reset?")) { state.grams = 0; state.level = 1; state.exp = 0; state.prestige = 1; state.donations = 0; state.crew = { trimmers: { n: 0, c: 20, p: 1 }, growers: { n: 0, c: 150, p: 5 } }; state.upgrades = []; state.strains = []; updateUI(); } }
 
         async function init() {
             let savedName = localStorage.getItem('cannaUsername');
@@ -224,11 +223,7 @@
 
             paypal.Buttons({
                 createOrder: (d, a) => a.order.create({ purchase_units: [{ amount: { value: '4.99' } }] }),
-                onApprove: (d, a) => a.order.capture().then(() => { 
-                    state.donations++; 
-                    alert("THANK YOU! Your x20 Multiplier has been applied!");
-                    updateUI(); 
-                })
+                onApprove: (d, a) => a.order.capture().then(() => { state.donations++; updateUI(); })
             }).render('#paypal-button-container');
 
             const chatBox = document.getElementById('chat-box');
