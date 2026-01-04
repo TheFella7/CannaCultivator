@@ -8,16 +8,20 @@
     <script src="https://www.paypal.com/sdk/js?client-id=AZawPulf_LA1GNqlqUE_L6PC4UqJsan33_c5L9wEcOLTRK1itpzK1QrSwueuFyPlbaEV7U0JejX_Vd70&currency=GBP"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-tap-highlight-color: transparent; }
-        body { background: linear-gradient(135deg, #1a2e0e 0%, #2d5016 100%); color: #f0f7da; min-height: 100vh; padding: 0 10px 10px 10px; }
+        body { background: linear-gradient(135deg, #1a2e0e 0%, #2d5016 100%); color: #f0f7da; min-height: 100vh; padding: 0 10px 10px 10px; position: relative; }
         
-        /* Notification Bar Style */
+        /* Floating Message Notification */
         #msgNotification {
-            position: fixed; top: 0; left: 0; right: 0; background: #76ff03; color: #1a2e0e;
-            text-align: center; padding: 5px; font-weight: bold; font-size: 0.8rem;
-            z-index: 1000; display: none; box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-            animation: slideDown 0.3s ease-out;
+            position: fixed; top: 15px; left: 50%; transform: translateX(-50%);
+            background: #76ff03; color: #1a2e0e; padding: 8px 20px; border-radius: 50px;
+            font-weight: bold; font-size: 1rem; z-index: 10000; display: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.6); cursor: pointer;
+            border: 2px solid #fff; animation: bounceIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
         }
-        @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+        @keyframes bounceIn { 
+            0% { transform: translateX(-50%) translateY(-100px); opacity: 0; }
+            100% { transform: translateX(-50%) translateY(0); opacity: 1; }
+        }
 
         .top-status-bar { background: rgba(0, 0, 0, 0.7); border-bottom: 2px solid #4caf50; margin: 0 -10px 15px -10px; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; color: #76ff03; box-shadow: 0 2px 10px rgba(0,0,0,0.5); font-weight: bold; }
         .container { max-width: 1200px; margin: 0 auto; background: rgba(20, 30, 15, 0.9); border-radius: 20px; padding: 20px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); border: 3px solid #4caf50; }
@@ -40,14 +44,16 @@
         button { background: linear-gradient(to bottom, #4caf50, #2e7d32); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 5px; }
         button:disabled { opacity: 0.4; cursor: not-allowed; background: #444; }
         .paypal-box { margin-top: 15px; padding: 12px; background: rgba(0,0,0,0.5); border: 2px solid #ffc107; border-radius: 12px; }
-        #chat-box { height: 150px; background: rgba(0,0,0,0.3); border-radius: 5px; margin-top: 10px; padding: 5px; overflow-y: auto; font-size: 0.8em; border: 1px solid #388e3c; color: #fff; }
+        #chat-box { height: 150px; background: rgba(0,0,0,0.3); border-radius: 5px; margin-top: 10px; padding: 5px; overflow-y: auto; font-size: 0.8em; border: 1px solid #388e3c; color: #fff; scroll-behavior: smooth; }
         .leaderboard-item { display: flex; flex-direction: column; padding: 8px; border-bottom: 1px solid #388e3c; }
         .you-row { border: 1px solid #76ff03; background: rgba(118,255,3,0.1); }
         .lb-stats { display: flex; justify-content: space-between; font-size: 0.85em; }
     </style>
 </head>
 <body>
-    <div id="msgNotification" onclick="scrollToChat()">💬 New Message! <span id="unreadCount">0</span> unread</div>
+    <div id="msgNotification" onclick="scrollToChat()">
+        💬 <span id="unreadCount">0</span>
+    </div>
 
     <div class="top-status-bar">
         <div class="status-item">📅 <span id="liveDate">03/01/2026</span></div>
@@ -90,7 +96,7 @@
                 <h2 class="section-title">Leaderboard</h2>
                 <div id="leaderboard">Loading...</div>
 
-                <h2 class="section-title" style="margin-top:20px;" id="chatHeader">Global Chat</h2>
+                <h2 class="section-title" style="margin-top:20px;">Global Chat</h2>
                 <div id="chat-box" onscroll="checkChatRead()"></div>
                 <input type="text" id="chatInput" placeholder="Press Enter to chat..." style="width:100%; background:#1b3012; border:1px solid #4caf50; color:#fff; padding:5px; margin-top:5px; border-radius:5px;">
 
@@ -121,9 +127,11 @@
         let lastClickTime = 0;
         const MIN_DELAY = 60;
 
+        // Notification Logic
         function checkChatRead() {
             const cb = document.getElementById('chat-box');
-            if (cb.scrollHeight - cb.scrollTop <= cb.clientHeight + 50) {
+            // If scrolled to bottom
+            if (cb.scrollHeight - cb.scrollTop <= cb.clientHeight + 30) {
                 unreadCount = 0;
                 document.getElementById('msgNotification').style.display = 'none';
             }
@@ -211,15 +219,13 @@
 
         function hardReset() {
             if(confirm("Full Reset? Everything will be wiped except your Name and PayPal purchases!")) {
-                const keepName = state.name;
-                const keepDonations = state.donations;
+                const kn = state.name; const kd = state.donations;
                 state = {
-                    name: keepName, grams: 0, level: 1, exp: 0, prestige: 1, donations: keepDonations,
+                    name: kn, grams: 0, level: 1, exp: 0, prestige: 1, donations: kd,
                     crew: { trimmers: { n: 0, c: 20, p: 1 }, growers: { n: 0, c: 150, p: 5 } },
                     strains: { skunk: { n: 0, c: 1000, p: 25 }, haze: { n: 0, c: 5000, p: 150 }, kush: { n: 0, c: 25000, p: 800 }, widow: { n: 0, c: 150000, p: 4000 }, diesel: { n: 0, c: 1000000, p: 25000 } }
                 };
-                updateUI();
-                alert("Game Reset successfully! Purchases were preserved.");
+                updateUI(); alert("Game Reset successfully!");
             }
         }
 
@@ -251,11 +257,13 @@
             } catch(e) {}
 
             sb.channel('chat_channel').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, p => {
-                const isAtBottom = cb.scrollHeight - cb.scrollTop <= cb.clientHeight + 50;
+                const isAtBottom = cb.scrollHeight - cb.scrollTop <= cb.clientHeight + 40;
                 cb.innerHTML += `<div><b>${p.new.player_name}:</b> ${p.new.message_text}</div>`;
                 
                 if (isAtBottom) {
                     cb.scrollTop = cb.scrollHeight;
+                    unreadCount = 0;
+                    document.getElementById('msgNotification').style.display = 'none';
                 } else {
                     unreadCount++;
                     document.getElementById('unreadCount').innerText = unreadCount;
@@ -300,8 +308,7 @@
             document.getElementById('clickArea').onclick = () => { 
                 if(Date.now() - lastClickTime < MIN_DELAY) return;
                 lastClickTime = Date.now();
-                let bh = 0;
-                Object.values(state.crew).forEach(c => bh += c.n * c.p);
+                let bh = 0; Object.values(state.crew).forEach(c => bh += c.n * c.p);
                 Object.values(state.strains).forEach(s => bh += s.n * s.p);
                 state.grams += (1 + (bh * 0.1)) * getGlobalBoost(); state.exp += (25 * state.prestige); updateUI(); 
             };
