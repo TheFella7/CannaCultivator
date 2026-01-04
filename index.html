@@ -89,7 +89,7 @@
             <div class="upgrades-shop">
                 <h2 class="section-title">Strain Masteries</h2>
                 <div id="strainList"></div>
-                <button onclick="hardReset()" style="background: #7d2e2e; margin-top: 20px; font-size: 0.8em;">RESET GAME</button>
+                <button onclick="hardReset()" style="background: #7d2e2e; margin-top: 20px; font-size: 0.8em;">RESET GAME (Keep Purchases)</button>
             </div>
         </div>
     </div>
@@ -101,17 +101,8 @@
 
         let state = {
             name: "", grams: 0, level: 1, exp: 0, prestige: 1, donations: 0,
-            crew: { 
-                trimmers: { n: 0, c: 20, p: 1 }, 
-                growers: { n: 0, c: 150, p: 5 } 
-            },
-            strains: {
-                skunk: { n: 0, c: 1000, p: 25 },
-                haze: { n: 0, c: 5000, p: 150 },
-                kush: { n: 0, c: 25000, p: 800 },
-                widow: { n: 0, c: 150000, p: 4000 },
-                diesel: { n: 0, c: 1000000, p: 25000 }
-            }
+            crew: { trimmers: { n: 0, c: 20, p: 1 }, growers: { n: 0, c: 150, p: 5 } },
+            strains: { skunk: { n: 0, c: 1000, p: 25 }, haze: { n: 0, c: 5000, p: 150 }, kush: { n: 0, c: 25000, p: 800 }, widow: { n: 0, c: 150000, p: 4000 }, diesel: { n: 0, c: 1000000, p: 25000 } }
         };
 
         let lastClickTime = 0;
@@ -127,35 +118,26 @@
         }
 
         function getGlobalBoost() {
-            const donationBoost = Math.pow(20, state.donations);
-            return state.prestige * (1 + (state.level * 0.1)) * donationBoost;
+            return state.prestige * (1 + (state.level * 0.1)) * Math.pow(20, state.donations);
         }
 
         function getExpRequired(lvl) { return Math.floor(Math.pow(lvl, 3.5)) * 5000; }
 
         function updateUI() {
             const boost = getGlobalBoost();
-            let baseHps = 0;
-            if (state.crew) Object.values(state.crew).forEach(c => baseHps += c.n * c.p);
-            if (state.strains) Object.values(state.strains).forEach(s => baseHps += s.n * s.p);
-            const totalHps = baseHps * boost;
-            const tapVal = (1 + (baseHps * 0.1)) * boost;
-
+            let bh = 0;
+            Object.values(state.crew).forEach(c => bh += c.n * c.p);
+            Object.values(state.strains).forEach(s => bh += s.n * s.p);
             document.getElementById('coinsDisplay').innerText = formatNum(state.grams) + " Grams";
-            document.getElementById('hpsDisplay').innerText = formatNum(totalHps) + " g/sec";
-            document.getElementById('tapEarned').innerText = formatNum(tapVal);
+            document.getElementById('hpsDisplay').innerText = formatNum(bh * boost) + " g/sec";
+            document.getElementById('tapEarned').innerText = formatNum((1 + (bh * 0.1)) * boost);
             document.getElementById('prestigeMult').innerText = state.prestige;
             document.getElementById('stackCount').innerText = state.donations;
 
-            const nextCost = 100000 * Math.pow(state.prestige, 3);
+            const nextP = 100000 * Math.pow(state.prestige, 3);
             let pMax = 0, totalP = 0, tempP = state.prestige;
-            while(state.grams >= totalP + (100000 * Math.pow(tempP, 3))) { 
-                totalP += (100000 * Math.pow(tempP, 3)); 
-                tempP++; 
-                pMax++; 
-                if(pMax > 100) break;
-            }
-            document.getElementById('prestigeBtn').innerText = pMax > 0 ? `Prestige (+${pMax})` : `Next: ${formatNum(nextCost)}g`;
+            while(state.grams >= totalP + (100000 * Math.pow(tempP, 3))) { totalP += (100000 * Math.pow(tempP, 3)); tempP++; pMax++; if(pMax > 100) break; }
+            document.getElementById('prestigeBtn').innerText = pMax > 0 ? `Prestige (+${pMax})` : `Next: ${formatNum(nextP)}g`;
             document.getElementById('prestigeBtn').disabled = pMax === 0;
 
             const req = getExpRequired(state.level);
@@ -164,59 +146,65 @@
             document.getElementById('expText').innerText = `${formatNum(state.exp)} / ${formatNum(req)} EXP`;
 
             document.getElementById('crewButtons').innerHTML = Object.keys(state.crew).map(id => {
-                let count = 0, total = 0, next = state.crew[id].c;
-                while (state.grams >= total + next) { total += next; next = Math.floor(next * 1.35); count++; }
-                return `<div class="upgrade-item"><b>${id.toUpperCase()}</b><div class="upgrade-desc">+${state.crew[id].p}g/sec each</div><div class="upgrade-desc">Owned: ${state.crew[id].n}</div><button onclick="buyMaxCrew('${id}')" ${count === 0 ? 'disabled' : ''}>${count > 0 ? `Buy Max (+${count})` : `Next: ${formatNum(state.crew[id].c)}`}</button></div>`;
+                let cnt = 0, tot = 0, nxt = state.crew[id].c;
+                while (state.grams >= tot + nxt) { tot += nxt; nxt = Math.floor(nxt * 1.35); cnt++; }
+                return `<div class="upgrade-item"><b>${id.toUpperCase()}</b><div class="upgrade-desc">+${state.crew[id].p}g/sec each</div><div class="upgrade-desc">Owned: ${state.crew[id].n}</div><button onclick="buyMaxCrew('${id}')" ${cnt === 0 ? 'disabled' : ''}>${cnt > 0 ? `Buy Max (+${cnt})` : `Next: ${formatNum(state.crew[id].c)}`}</button></div>`;
             }).join('');
 
             document.getElementById('strainList').innerHTML = Object.keys(state.strains).map(id => {
-                let count = 0, total = 0, next = state.strains[id].c;
-                while (state.grams >= total + next) { total += next; next = Math.floor(next * 1.45); count++; }
-                return `<div class="upgrade-item"><b>${id.toUpperCase()}</b><div class="upgrade-desc">+${state.strains[id].p}g/sec</div><div class="upgrade-desc">Grade: ${state.strains[id].n}</div><button onclick="buyMaxStrain('${id}')" ${count === 0 ? 'disabled' : ''}>${count > 0 ? `Upgrade Max (+${count})` : `Next: ${formatNum(state.strains[id].c)}`}</button></div>`;
+                let cnt = 0, tot = 0, nxt = state.strains[id].c;
+                while (state.grams >= tot + nxt) { tot += nxt; nxt = Math.floor(nxt * 1.45); cnt++; }
+                return `<div class="upgrade-item"><b>${id.toUpperCase()}</b><div class="upgrade-desc">+${state.strains[id].p}g/sec</div><div class="upgrade-desc">Grade: ${state.strains[id].n}</div><button onclick="buyMaxStrain('${id}')" ${cnt === 0 ? 'disabled' : ''}>${cnt > 0 ? `Upgrade Max (+${cnt})` : `Next: ${formatNum(state.strains[id].c)}`}</button></div>`;
             }).join('');
         }
 
         function buyPrestige() {
             let pMax = 0, totalP = 0, tempP = state.prestige;
             while(state.grams >= totalP + (100000 * Math.pow(tempP, 3))) { totalP += (100000 * Math.pow(tempP, 3)); tempP++; pMax++; }
-            if (pMax > 0) { 
-                if(confirm(`Prestige now for a +${pMax} Prestige increase?`)) {
-                    state.prestige += pMax; state.grams = 0; state.level = 1; state.exp = 0;
-                    state.crew.trimmers = { n: 0, c: 20, p: 1 }; state.crew.growers = { n: 0, c: 150, p: 5 }; 
-                    state.strains = { skunk: { n: 0, c: 1000, p: 25 }, haze: { n: 0, c: 5000, p: 150 }, kush: { n: 0, c: 25000, p: 800 }, widow: { n: 0, c: 150000, p: 4000 }, diesel: { n: 0, c: 1000000, p: 25000 } };
-                    updateUI(); 
-                }
+            if (pMax > 0 && confirm(`Prestige now for a +${pMax} Prestige increase?`)) {
+                state.prestige += pMax; state.grams = 0; state.level = 1; state.exp = 0;
+                state.crew = { trimmers: { n: 0, c: 20, p: 1 }, growers: { n: 0, c: 150, p: 5 } };
+                state.strains = { skunk: { n: 0, c: 1000, p: 25 }, haze: { n: 0, c: 5000, p: 150 }, kush: { n: 0, c: 25000, p: 800 }, widow: { n: 0, c: 150000, p: 4000 }, diesel: { n: 0, c: 1000000, p: 25000 } };
+                updateUI(); 
             }
         }
 
         function buyMaxCrew(id) {
-            let total = 0, next = state.crew[id].c, count = 0;
-            while (state.grams >= total + next) { total += next; next = Math.floor(next * 1.35); count++; }
-            if(count > 0) { state.grams -= total; state.crew[id].n += count; state.crew[id].c = next; updateUI(); }
+            let tot = 0, nxt = state.crew[id].c, cnt = 0;
+            while (state.grams >= tot + nxt) { tot += nxt; nxt = Math.floor(nxt * 1.35); cnt++; }
+            if(cnt > 0) { state.grams -= tot; state.crew[id].n += cnt; state.crew[id].c = nxt; updateUI(); }
         }
 
         function buyMaxStrain(id) {
-            let total = 0, next = state.strains[id].c, count = 0;
-            while (state.grams >= total + next) { total += next; next = Math.floor(next * 1.45); count++; }
-            if(count > 0) { state.grams -= total; state.strains[id].n += count; state.strains[id].c = next; updateUI(); }
+            let tot = 0, nxt = state.strains[id].c, cnt = 0;
+            while (state.grams >= tot + nxt) { tot += nxt; nxt = Math.floor(nxt * 1.45); cnt++; }
+            if(cnt > 0) { state.grams -= tot; state.strains[id].n += cnt; state.strains[id].c = nxt; updateUI(); }
         }
 
-        function hardReset() { if(confirm("Full Reset?")) { localStorage.clear(); location.reload(); } }
+        function hardReset() {
+            if(confirm("Full Reset? Everything will be wiped except your Name and PayPal purchases!")) {
+                const keepName = state.name;
+                const keepDonations = state.donations;
+                // Full reset to initial state
+                state = {
+                    name: keepName, grams: 0, level: 1, exp: 0, prestige: 1, donations: keepDonations,
+                    crew: { trimmers: { n: 0, c: 20, p: 1 }, growers: { n: 0, c: 150, p: 5 } },
+                    strains: { skunk: { n: 0, c: 1000, p: 25 }, haze: { n: 0, c: 5000, p: 150 }, kush: { n: 0, c: 25000, p: 800 }, widow: { n: 0, c: 150000, p: 4000 }, diesel: { n: 0, c: 1000000, p: 25000 } }
+                };
+                updateUI();
+                alert("Game Reset successfully! Purchases were preserved.");
+            }
+        }
 
         async function init() {
-            let savedName = localStorage.getItem('cannaUsername');
-            if(!savedName) { 
-                savedName = (prompt("Grower Name:") || "Grower" + Math.floor(Math.random()*99)).replace(/<[^>]*>/g, "").substring(0, 15); 
-                localStorage.setItem('cannaUsername', savedName); 
-            }
-            state.name = savedName; document.getElementById('playerNameDisplay').innerText = state.name;
+            let sn = localStorage.getItem('cannaUsername');
+            if(!sn) { sn = (prompt("Grower Name:") || "Grower" + Math.floor(Math.random()*99)).replace(/<[^>]*>/g, "").substring(0, 15); localStorage.setItem('cannaUsername', sn); }
+            state.name = sn; document.getElementById('playerNameDisplay').innerText = state.name;
 
             try {
                 const { data } = await sb.from('leaderboard').select('game_state').eq('player_name', state.name).single();
                 if(data && data.game_state) {
-                    if (Array.isArray(data.game_state.strains)) {
-                        data.game_state.strains = { skunk: { n: 0, c: 1000, p: 25 }, haze: { n: 0, c: 5000, p: 150 }, kush: { n: 0, c: 25000, p: 800 }, widow: { n: 0, c: 150000, p: 4000 }, diesel: { n: 0, c: 1000000, p: 25000 } };
-                    }
+                    if (Array.isArray(data.game_state.strains)) { data.game_state.strains = { skunk: { n: 0, c: 1000, p: 25 }, haze: { n: 0, c: 5000, p: 150 }, kush: { n: 0, c: 25000, p: 800 }, widow: { n: 0, c: 150000, p: 4000 }, diesel: { n: 0, c: 1000000, p: 25000 } }; }
                     state = {...state, ...data.game_state};
                 }
             } catch(e) {}
@@ -228,30 +216,30 @@
                 }).render('#paypal-button-container');
             }
 
-            const chatBox = document.getElementById('chat-box');
+            const cb = document.getElementById('chat-box');
             try {
-                const { data: history } = await sb.from('messages').select('player_name, message_text').order('created_at', {ascending: false}).limit(20);
-                if(history) chatBox.innerHTML = history.reverse().map(m => `<div><b>${m.player_name}:</b> ${m.message_text}</div>`).join('');
+                const { data: hist } = await sb.from('messages').select('player_name, message_text').order('created_at', {ascending: false}).limit(20);
+                if(hist) cb.innerHTML = hist.reverse().map(m => `<div><b>${m.player_name}:</b> ${m.message_text}</div>`).join('');
             } catch(e) {}
 
-            sb.channel('chat_channel').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
-                chatBox.innerHTML += `<div><b>${payload.new.player_name}:</b> ${payload.new.message_text}</div>`;
-                chatBox.scrollTop = chatBox.scrollHeight;
+            sb.channel('chat_channel').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, p => {
+                cb.innerHTML += `<div><b>${p.new.player_name}:</b> ${p.new.message_text}</div>`;
+                cb.scrollTop = cb.scrollHeight;
             }).subscribe();
 
             document.getElementById('chatInput').onkeypress = async e => {
                 if(e.key === 'Enter' && e.target.value.trim()){
-                    const msg = e.target.value.substring(0, 80);
-                    e.target.value = '';
-                    await sb.from('messages').insert([{player_name: state.name, message_text: msg}]);
+                    const m = e.target.value.substring(0, 80); e.target.value = '';
+                    await sb.from('messages').insert([{player_name: state.name, message_text: m}]);
                 }
             };
 
             setInterval(() => {
-                let baseHps = 0;
-                Object.values(state.crew).forEach(c => baseHps += c.n * c.p);
-                Object.values(state.strains).forEach(s => baseHps += s.n * s.p);
-                state.grams += (baseHps * getGlobalBoost()) / 10; state.exp += ((baseHps * getGlobalBoost()) / 10) * state.prestige;
+                let bh = 0;
+                Object.values(state.crew).forEach(c => bh += c.n * c.p);
+                Object.values(state.strains).forEach(s => bh += s.n * s.p);
+                const boost = getGlobalBoost();
+                state.grams += (bh * boost) / 10; state.exp += ((bh * boost) / 10) * state.prestige;
                 if(state.exp >= getExpRequired(state.level)) { state.exp -= getExpRequired(state.level); state.level++; }
                 updateUI();
             }, 100);
@@ -264,11 +252,9 @@
                     const { data: lb } = await sb.from('leaderboard').select('player_name, player_level, game_state').order('player_level', {ascending:false}).limit(10);
                     if(lb) {
                         document.getElementById('leaderboard').innerHTML = lb.map((p,i) => {
-                            const pState = p.game_state || {};
-                            const pPrest = pState.prestige || 1;
                             return `<div class="leaderboard-item ${p.player_name === state.name ? 'you-row' : ''}">
                                 <b>#${i+1} ${p.player_name}</b>
-                                <div class="lb-stats"><span>Level ${p.player_level}</span><span>Prestige ${pPrest}</span></div>
+                                <div class="lb-stats"><span>Level ${p.player_level}</span><span>Prestige ${p.game_state?.prestige || 1}</span></div>
                             </div>`;
                         }).join('');
                     }
