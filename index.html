@@ -38,7 +38,7 @@
 </head>
 <body>
     <div class="top-status-bar">
-        <div class="status-item">📅 <span id="liveDate">03/01/2026</span></div>
+        <div class="status-item">📅 <span id="liveDate">--/--/----</span></div>
         <div class="status-item">🕒 <span id="liveClock">00:00:00</span></div>
         <div class="status-item">👥 <span id="onlineCount">1</span> Online</div>
     </div>
@@ -87,10 +87,8 @@
             </div>
 
             <div class="upgrades-shop">
-                <h2 class="section-title">Strains</h2>
+                <h2 class="section-title">Strain Masteries</h2>
                 <div id="strainList"></div>
-                <h2 class="section-title" style="margin-top:20px;">Supplies</h2>
-                <div id="shopList"></div>
                 <button onclick="hardReset()" style="background: #7d2e2e; margin-top: 20px; font-size: 0.8em;">RESET GAME</button>
             </div>
         </div>
@@ -111,15 +109,15 @@
         const MIN_DELAY = 60;
 
         const staticData = {
-            upgrades: [
-                { id: 'shears', name: 'Sharp Shears', cost: 100, x: 2, type: 'tap', desc: 'Double your manual tap power' },
-                { id: 'lights', name: 'LED Lights', cost: 500, x: 1.5, type: 'auto', desc: 'Auto-production speed x1.5' },
-                { id: 'hydro', name: 'Hydroponics', cost: 2000, x: 3, type: 'auto', desc: 'Auto-production speed x3' }
-            ],
+            // Supply upgrades removed as requested.
             strains: [
                 { id: 'skunk', name: 'Skunk #1', cost: 1000, x: 2, desc: 'Global Multiplier x2' },
                 { id: 'haze', name: 'Purple Haze', cost: 5000, x: 5, desc: 'Global Multiplier x5' },
-                { id: 'kush', name: 'OG Kush', cost: 25000, x: 10, desc: 'Global Multiplier x10' }
+                { id: 'kush', name: 'OG Kush', cost: 25000, x: 10, desc: 'Global Multiplier x10' },
+                { id: 'widow', name: 'White Widow', cost: 100000, x: 25, desc: 'Global Multiplier x25' },
+                { id: 'diesel', name: 'Sour Diesel', cost: 500000, x: 50, desc: 'Global Multiplier x50' },
+                { id: 'gelato', name: 'Gelato #41', cost: 2500000, x: 100, desc: 'Global Multiplier x100' },
+                { id: 'runtz', name: 'Pink Runtz', cost: 10000000, x: 500, desc: 'Global Multiplier x500' }
             ]
         };
 
@@ -135,10 +133,7 @@
         function getMults() {
             let tap = 1, auto = 1, sMult = 1;
             state.strains.forEach(id => { const s = staticData.strains.find(x => x.id === id); if(s) sMult *= s.x; });
-            state.upgrades.forEach(id => { 
-                const u = staticData.upgrades.find(x => x.id === id);
-                if(u) { if(u.type === 'tap') tap *= u.x; else auto *= u.x; }
-            });
+            
             // Multiplier stacks: x20 for every donation purchase
             const donationBoost = Math.pow(20, state.donations);
             const global = state.prestige * (1 + (state.level * 0.1)) * donationBoost * sMult;
@@ -174,14 +169,13 @@
             }).join('');
 
             document.getElementById('strainList').innerHTML = staticData.strains.map(s => `<div class="upgrade-item"><b>${s.name}</b><div class="upgrade-desc">${s.desc}</div>${state.strains.includes(s.id) ? '<span style="color:#76ff03">OWNED</span>' : `<button onclick="buyStrain('${s.id}')" ${state.grams < s.cost ? 'disabled' : ''}>${formatNum(s.cost)}g</button>`}</div>`).join('');
-            document.getElementById('shopList').innerHTML = staticData.upgrades.map(u => `<div class="upgrade-item"><b>${u.name}</b><div class="upgrade-desc">${u.desc}</div>${state.upgrades.includes(u.id) ? '<span style="color:#76ff03">OWNED</span>' : `<button onclick="buyUpgrade('${u.id}')" ${state.grams < u.cost ? 'disabled' : ''}>${formatNum(u.cost)}g</button>`}</div>`).join('');
         }
 
         function buyPrestige() {
             let pMax = 0, totalP = 0, tempP = state.prestige;
             while(state.grams >= totalP + (100000 * Math.pow(tempP, 3))) { totalP += (100000 * Math.pow(tempP, 3)); tempP++; pMax++; }
             if (pMax > 0) { 
-                if(confirm(`Prestige now for a x${pMax} boost? Everything except Permanent Multipliers will be reset!`)) {
+                if(confirm(`Prestige now for a +${pMax} level increase? Everything except Permanent Multipliers will be reset!`)) {
                     state.prestige += pMax; 
                     state.grams = 0; 
                     state.level = 1;
@@ -204,11 +198,6 @@
         function buyStrain(id) {
             const s = staticData.strains.find(x => x.id === id);
             if(!state.strains.includes(id) && state.grams >= s.cost) { state.grams -= s.cost; state.strains.push(id); updateUI(); }
-        }
-
-        function buyUpgrade(id) {
-            const u = staticData.upgrades.find(x => x.id === id);
-            if(!state.upgrades.includes(id) && state.grams >= u.cost) { state.grams -= u.cost; state.upgrades.push(id); updateUI(); }
         }
 
         function hardReset() { if(confirm("Full Reset?")) { state.grams = 0; state.level = 1; state.exp = 0; state.prestige = 1; state.donations = 0; state.crew = { trimmers: { n: 0, c: 20, p: 1 }, growers: { n: 0, c: 150, p: 5 } }; state.upgrades = []; state.strains = []; updateUI(); } }
@@ -255,11 +244,33 @@
             }, 100);
 
             setInterval(async () => {
-                await sb.from('leaderboard').upsert({ player_name: state.name, grams: Math.floor(state.grams), game_state: state, player_level: state.level, last_active: new Date().toISOString() });
+                // Upsert tracks Level and Prestige in the columns
+                await sb.from('leaderboard').upsert({ 
+                    player_name: state.name, 
+                    grams: Math.floor(state.grams), 
+                    game_state: state, 
+                    player_level: state.level, 
+                    prestige_level: state.prestige, // Now tracking prestige
+                    last_active: new Date().toISOString() 
+                });
+
                 const { count } = await sb.from('leaderboard').select('*', { count: 'exact', head: true }).gt('last_active', new Date(Date.now() - 300000).toISOString());
                 document.getElementById('onlineCount').innerText = count || 1;
-                const { data: lb } = await sb.from('leaderboard').select('player_name, player_level, grams').order('grams', {ascending:false}).limit(10);
-                if(lb) document.getElementById('leaderboard').innerHTML = lb.map((p,i)=>`<div class="leaderboard-item ${p.player_name === state.name ? 'you-row' : ''}"><b>#${i+1} ${p.player_name}</b><div class="lb-stats"><span>Lvl ${p.player_level}</span><span>${formatNum(p.grams)}g</span></div></div>`).join('');
+                
+                // Fetch leaderboard ordered by prestige first, then grams
+                const { data: lb } = await sb.from('leaderboard').select('player_name, player_level, grams, game_state').order('grams', {ascending:false}).limit(10);
+                if(lb) {
+                    document.getElementById('leaderboard').innerHTML = lb.map((p,i)=>{
+                        const pLevel = p.game_state ? (p.game_state.prestige || 1) : 1;
+                        return `<div class="leaderboard-item ${p.player_name === state.name ? 'you-row' : ''}">
+                            <b>#${i+1} ${p.player_name}</b>
+                            <div class="lb-stats">
+                                <span>Lvl ${p.player_level} (P${pLevel})</span>
+                                <span>${formatNum(p.grams)}g</span>
+                            </div>
+                        </div>`;
+                    }).join('');
+                }
             }, 5000);
 
             document.getElementById('clickArea').onclick = () => { 
