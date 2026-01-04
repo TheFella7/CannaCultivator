@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Canna Cultivator - Secure Edition</title>
+    <title>Canna Cultivator - Secure & Persistent</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://www.paypal.com/sdk/js?client-id=AZawPulf_LA1GNqlqUE_L6PC4UqJsan33_c5L9wEcOLTRK1itpzK1QrSwueuFyPlbaEV7U0JejX_Vd70&currency=GBP"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-tap-highlight-color: transparent; }
         body { background: linear-gradient(135deg, #1a2e0e 0%, #2d5016 100%); color: #f0f7da; min-height: 100vh; padding: 0 10px 10px 10px; }
         
-        /* TOP STATUS BAR - REVERTED TO TOP POSITION */
         .top-status-bar {
             background: rgba(0, 0, 0, 0.7);
             border-bottom: 2px solid #4caf50;
@@ -52,7 +51,8 @@
         button:disabled { opacity: 0.4; cursor: not-allowed; background: #444; }
         
         .paypal-box { margin-top: 15px; padding: 12px; background: rgba(0,0,0,0.5); border: 2px solid #ffc107; border-radius: 12px; }
-        #chat-box { height: 150px; background: rgba(0,0,0,0.3); border-radius: 5px; margin-top: 10px; padding: 5px; overflow-y: auto; font-size: 0.8em; border: 1px solid #388e3c; }
+        #chat-box { height: 180px; background: rgba(0,0,0,0.3); border-radius: 5px; margin-top: 10px; padding: 8px; overflow-y: auto; font-size: 0.85em; border: 1px solid #388e3c; }
+        .chat-msg { margin-bottom: 4px; border-bottom: 1px solid rgba(76, 175, 80, 0.1); padding-bottom: 2px; }
         
         .leaderboard-item { display: flex; flex-direction: column; padding: 8px; border-bottom: 1px solid #388e3c; }
         .you-row { border: 1px solid #76ff03; background: rgba(118,255,3,0.1); }
@@ -61,7 +61,7 @@
 </head>
 <body>
     <div class="top-status-bar">
-        <div class="status-item">📅 <span id="liveDate">03/01/2026</span></div>
+        <div class="status-item">📅 <span id="liveDate">--/--/----</span></div>
         <div class="status-item">🕒 <span id="liveClock">00:00:00</span></div>
         <div class="status-item">👥 <span id="onlineCount">1</span> Online</div>
     </div>
@@ -69,7 +69,7 @@
     <div class="container">
         <div class="header">
             <h1 class="game-title">🌿 Canna Cultivator</h1>
-            <p>Welcome, <span id="playerNameDisplay" style="color:#76ff03">...</span>!</p>
+            <p>Grower: <span id="playerNameDisplay" style="color:#76ff03">...</span></p>
             <div style="margin-top: 10px;">
                 <span>Level: <b id="levelDisplay">1</b></span>
                 <div class="exp-container"><div class="exp-bar" id="expBar"></div></div>
@@ -80,44 +80,36 @@
         <div class="game-area">
             <div class="main-garden">
                 <h2 class="section-title">Cultivation</h2>
-                <div class="tap-stat">Tap Value: +<span id="tapEarned">1</span>g</div>
+                <div class="tap-stat">Tap: +<span id="tapEarned">1</span>g</div>
                 <div class="click-area" id="clickArea">🌿</div>
                 <div class="coins-display" id="coinsDisplay">0 Grams</div>
                 <p class="herb-count" id="hpsDisplay">0 g/sec</p>
                 
                 <div class="prestige-box">
-                    <div style="color:#76ff03; font-weight: bold;">Multiplier: x<span id="prestigeMult">1</span></div>
                     <button id="prestigeBtn" onclick="buyPrestige()">Buy Prestige</button>
-                    
                     <div class="paypal-box">
-                        <p style="color:#fff; font-weight: bold;">x20 PERMANENT BOOST</p>
-                        <p style="color:#ffc107; font-weight: bold; margin: 5px 0;">£4.99</p>
-                        <p style="color:#ffc107; font-size: 0.8em; margin-bottom: 10px;">Stacks: <span id="stackCount">0</span></p>
-                        <div id="paypal-button-container"></div>
+                        <p style="color:#ffc107; font-weight: bold;">x20 Boost Stacks: <span id="stackCount">0</span></p>
+                        <div id="paypal-button-container" style="margin-top:10px;"></div>
                     </div>
                 </div>
             </div>
 
             <div class="stats-sidebar">
-                <h2 class="section-title">Leaderboard</h2>
+                <h2 class="section-title">Global Chat</h2>
+                <div id="chat-box">Loading messages...</div>
+                <input type="text" id="chatInput" placeholder="Say something..." style="width:100%; background:#1b3012; border:1px solid #4caf50; color:#fff; padding:8px; margin-top:5px; border-radius:5px;">
+
+                <h2 class="section-title" style="margin-top:20px;">Leaderboard</h2>
                 <div id="leaderboard">Loading...</div>
-
-                <h2 class="section-title" style="margin-top:20px;">Global Chat</h2>
-                <div id="chat-box"></div>
-                <input type="text" id="chatInput" placeholder="Press Enter to chat..." style="width:100%; background:#1b3012; border:1px solid #4caf50; color:#fff; padding:5px; margin-top:5px; border-radius:5px;">
-
-                <h2 class="section-title" style="margin-top:20px;">The Crew</h2>
-                <div id="crewButtons"></div>
             </div>
 
             <div class="upgrades-shop">
-                <h2 class="section-title">Strains</h2>
+                <h2 class="section-title">The Crew</h2>
+                <div id="crewButtons"></div>
+                <h2 class="section-title" style="margin-top:20px;">Strains & Supplies</h2>
                 <div id="strainList"></div>
-
-                <h2 class="section-title" style="margin-top:20px;">Supplies</h2>
                 <div id="shopList"></div>
-                
-                <button onclick="hardReset()" style="background: #7d2e2e; margin-top: 20px; font-size: 0.8em;">RESET GAME</button>
+                <button onclick="hardReset()" style="background: #7d2e2e; margin-top: 20px; font-size: 0.8em; opacity: 0.6;">HARD RESET</button>
             </div>
         </div>
     </div>
@@ -133,9 +125,8 @@
             upgrades: [], strains: [] 
         };
 
-        // Anti-Cheat Variables
         let lastClickTime = 0;
-        const MIN_DELAY = 60; // Caps manual clicking
+        const MIN_DELAY = 60; 
 
         const staticData = {
             upgrades: [
@@ -153,11 +144,10 @@
         function formatNum(n) {
             if (n === 0) return "0"; 
             if (n < 1000) return Math.floor(n).toString();
-            const suffixes = ["", "k", "m", "b", "t", "a", "b", "c", "d"];
+            const suffixes = ["", "k", "m", "b", "t", "a", "b", "c"];
             const suffixNum = Math.floor(("" + Math.floor(n)).length / 3);
-            let shortValue = parseFloat((suffixNum != 0 ? (n / Math.pow(1000, suffixNum)) : n).toPrecision(3));
-            if (shortValue % 1 != 0) shortValue = shortValue.toFixed(1);
-            return shortValue + suffixes[suffixNum];
+            let shortVal = parseFloat((suffixNum != 0 ? (n / Math.pow(1000, suffixNum)) : n).toPrecision(3));
+            return shortVal + suffixes[suffixNum];
         }
 
         function getMults() {
@@ -181,14 +171,11 @@
             document.getElementById('coinsDisplay').innerText = formatNum(state.grams) + " Grams";
             document.getElementById('hpsDisplay').innerText = formatNum(hps) + " g/sec";
             document.getElementById('tapEarned').innerText = formatNum(m.tap);
-            document.getElementById('prestigeMult').innerText = formatNum(state.prestige);
             document.getElementById('stackCount').innerText = state.donations;
 
-            const nextCost = 100000 * Math.pow(state.prestige, 3);
-            let pMax = 0, totalP = 0, tempP = state.prestige;
-            while(state.grams >= totalP + (100000 * Math.pow(tempP, 3))) { totalP += (100000 * Math.pow(tempP, 3)); tempP++; pMax++; if(pMax > 100) break;}
-            document.getElementById('prestigeBtn').innerText = pMax > 0 ? `Prestige (+${pMax})` : `Next: ${formatNum(nextCost)}g`;
-            document.getElementById('prestigeBtn').disabled = pMax === 0;
+            const nextP = 100000 * Math.pow(state.prestige, 3);
+            document.getElementById('prestigeBtn').innerText = state.grams >= nextP ? "Buy Prestige" : "Need " + formatNum(nextP);
+            document.getElementById('prestigeBtn').disabled = state.grams < nextP;
 
             const req = getExpRequired(state.level);
             document.getElementById('levelDisplay').innerText = state.level;
@@ -196,79 +183,77 @@
             document.getElementById('expText').innerText = `${formatNum(state.exp)} / ${formatNum(req)} EXP`;
 
             document.getElementById('crewButtons').innerHTML = Object.keys(state.crew).map(id => {
-                let count = 0, total = 0, next = state.crew[id].c;
-                while (state.grams >= total + next) { total += next; next = Math.floor(next * 1.35); count++; if(count > 50) break; }
-                return `<div class="upgrade-item"><b>${id.toUpperCase()}</b> (${state.crew[id].n})<button onclick="buyMaxCrew('${id}')" ${count === 0 ? 'disabled' : ''}>${count > 0 ? `Buy Max (+${count})` : `Next: ${formatNum(state.crew[id].c)}`}</button></div>`;
+                return `<div class="upgrade-item"><b>${id.toUpperCase()}</b> (${state.crew[id].n})<button onclick="buyMaxCrew('${id}')">Buy Max (${formatNum(state.crew[id].c)}g)</button></div>`;
             }).join('');
 
             document.getElementById('strainList').innerHTML = staticData.strains.map(s => `
-                <div class="upgrade-item"><b>${s.name}</b><br>${state.strains.includes(s.id) ? '<span style="color:#76ff03">OWNED</span>' : `<button onclick="buyStrain('${s.id}')" ${state.grams < s.cost ? 'disabled' : ''}>${formatNum(s.cost)}g</button>`}</div>
+                <div class="upgrade-item"><b>${s.name}</b> ${state.strains.includes(s.id) ? 'OWNED' : `<button onclick="buyStrain('${s.id}')">${formatNum(s.cost)}g</button>`}</div>
             `).join('');
 
             document.getElementById('shopList').innerHTML = staticData.upgrades.map(u => `
-                <div class="upgrade-item"><b>${u.name}</b><br>${state.upgrades.includes(u.id) ? '<span style="color:#76ff03">OWNED</span>' : `<button onclick="buyUpgrade('${u.id}')" ${state.grams < u.cost ? 'disabled' : ''}>${formatNum(u.cost)}g</button>`}</div>
+                <div class="upgrade-item"><b>${u.name}</b> ${state.upgrades.includes(u.id) ? 'OWNED' : `<button onclick="buyUpgrade('${u.id}')">${formatNum(u.cost)}g</button>`}</div>
             `).join('');
         }
 
         function buyPrestige() {
-            let pMax = 0, totalP = 0, tempP = state.prestige;
-            while(state.grams >= totalP + (100000 * Math.pow(tempP, 3))) { totalP += (100000 * Math.pow(tempP, 3)); tempP++; pMax++; }
-            if (pMax > 0) {
-                state.prestige += pMax; state.grams = 0; state.upgrades = [];
-                state.crew.trimmers = { n: 0, c: 20, p: 1 };
-                state.crew.growers = { n: 0, c: 150, p: 5 };
-                updateUI();
-            }
+            const cost = 100000 * Math.pow(state.prestige, 3);
+            if(state.grams >= cost) { state.prestige++; state.grams = 0; state.crew.trimmers.n=0; state.crew.growers.n=0; updateUI(); }
         }
 
         function buyMaxCrew(id) {
-            let total = 0, next = state.crew[id].c, count = 0;
-            while (state.grams >= total + next) { total += next; next = Math.floor(next * 1.35); count++; }
-            if(count > 0) { state.grams -= total; state.crew[id].n += count; state.crew[id].c = next; updateUI(); }
+            while(state.grams >= state.crew[id].c) { state.grams -= state.crew[id].c; state.crew[id].n++; state.crew[id].c = Math.floor(state.crew[id].c * 1.35); }
+            updateUI();
         }
 
         function buyStrain(id) {
             const s = staticData.strains.find(x => x.id === id);
-            if(!state.strains.includes(id) && state.grams >= s.cost) { state.grams -= s.cost; state.strains.push(id); updateUI(); }
+            if(state.grams >= s.cost) { state.grams -= s.cost; state.strains.push(id); updateUI(); }
         }
 
         function buyUpgrade(id) {
             const u = staticData.upgrades.find(x => x.id === id);
-            if(!state.upgrades.includes(id) && state.grams >= u.cost) { state.grams -= u.cost; state.upgrades.push(id); updateUI(); }
+            if(state.grams >= u.cost) { state.grams -= u.cost; state.upgrades.push(id); updateUI(); }
         }
 
-        function hardReset() {
-            if(confirm("Full Reset? (Grams, Levels, and Crew will be wiped. PayPal stays!)")) {
-                state.grams = 0; state.level = 1; state.exp = 0; state.prestige = 1;
-                state.crew = { trimmers: { n: 0, c: 20, p: 1 }, growers: { n: 0, c: 150, p: 5 } };
-                state.upgrades = []; state.strains = []; updateUI();
+        function hardReset() { if(confirm("Reset everything?")) { localStorage.clear(); location.reload(); } }
+
+        // --- NEW CHAT FUNCTIONS ---
+        async function loadChatHistory() {
+            const { data } = await sb.from('messages').select('player_name, message_text').order('created_at', {ascending: false}).limit(40);
+            if(data) {
+                const box = document.getElementById('chat-box');
+                box.innerHTML = data.reverse().map(m => `<div class="chat-msg"><b>${m.player_name.replace(/<[^>]*>/g, "")}:</b> ${m.message_text.replace(/<[^>]*>/g, "")}</div>`).join('');
+                box.scrollTop = box.scrollHeight;
             }
         }
 
         async function init() {
             let savedName = localStorage.getItem('cannaUsername');
             if(!savedName) {
-                savedName = (prompt("Grower Name:") || "Grower" + Math.floor(Math.random()*99)).replace(/<[^>]*>/g, "").substring(0, 15);
+                savedName = (prompt("Grower Name:") || "User" + Math.floor(Math.random()*99)).substring(0, 15);
                 localStorage.setItem('cannaUsername', savedName);
             }
             state.name = savedName;
             document.getElementById('playerNameDisplay').innerText = state.name;
 
-            const { data } = await sb.from('leaderboard').select('game_state').eq('player_name', state.name).single();
-            if(data) state = {...state, ...data.game_state};
+            const { data: cloudState } = await sb.from('leaderboard').select('game_state').eq('player_name', state.name).single();
+            if(cloudState) state = {...state, ...cloudState.game_state};
 
             paypal.Buttons({
                 createOrder: (d, a) => a.order.create({ purchase_units: [{ amount: { value: '4.99' } }] }),
                 onApprove: (d, a) => a.order.capture().then(() => { state.donations++; updateUI(); })
             }).render('#paypal-button-container');
 
+            // Load Chat
+            loadChatHistory();
+
+            // Real-time loops
             setInterval(() => {
                 const m = getMults();
                 const hps = (state.crew.trimmers.n * 1 + state.crew.growers.n * 5) * m.auto;
                 state.grams += hps / 10;
                 state.exp += (hps / 10) * state.prestige;
-                const req = getExpRequired(state.level);
-                if(state.exp >= req) { state.exp -= req; state.level++; }
+                if(state.exp >= getExpRequired(state.level)) { state.exp = 0; state.level++; }
                 updateUI();
             }, 100);
 
@@ -278,28 +263,26 @@
                 document.getElementById('liveDate').innerText = now.toLocaleDateString();
             }, 1000);
 
+            // Sync Game & Online Count
             setInterval(async () => {
-                await sb.from('leaderboard').upsert({ 
-                    player_name: state.name, grams: Math.floor(state.grams), game_state: state, player_level: state.level, last_active: new Date().toISOString()
-                }, { onConflict: 'player_name' });
-                const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-                const { count } = await sb.from('leaderboard').select('*', { count: 'exact', head: true }).gt('last_active', fiveMinsAgo);
+                await sb.from('leaderboard').upsert({ player_name: state.name, grams: Math.floor(state.grams), game_state: state, player_level: state.level, last_active: new Date().toISOString() }, { onConflict: 'player_name' });
+                const { count } = await sb.from('leaderboard').select('*', { count: 'exact', head: true }).gt('last_active', new Date(Date.now() - 300000).toISOString());
                 document.getElementById('onlineCount').innerText = count || 1;
             }, 5000);
 
+            // Leaderboard Update
             setInterval(async () => {
                 const { data } = await sb.from('leaderboard').select('player_name, player_level, grams').order('grams', {ascending:false}).limit(10);
                 if(data) document.getElementById('leaderboard').innerHTML = data.map((p,i)=>`
                     <div class="leaderboard-item ${p.player_name === state.name ? 'you-row' : ''}">
-                        <b>#${i+1} ${p.player_name.replace(/<[^>]*>/g, "")}</b>
+                        <b>#${i+1} ${p.player_name}</b>
                         <div class="lb-stats"><span>Lvl ${p.player_level}</span><span>${formatNum(p.grams)}g</span></div>
                     </div>`).join('');
             }, 10000);
 
             document.getElementById('clickArea').onclick = () => { 
-                const now = Date.now();
-                if(now - lastClickTime < MIN_DELAY) return; // Anti-cheat click cap
-                lastClickTime = now;
+                if(Date.now() - lastClickTime < MIN_DELAY) return;
+                lastClickTime = Date.now();
                 state.grams += getMults().tap; 
                 state.exp += (25 * state.prestige);
                 updateUI(); 
@@ -315,7 +298,7 @@
 
             sb.channel('chat').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, p => {
                 const box = document.getElementById('chat-box');
-                box.innerHTML += `<div><b>${p.new.player_name.replace(/<[^>]*>/g, "")}:</b> ${p.new.message_text.replace(/<[^>]*>/g, "")}</div>`;
+                box.innerHTML += `<div class="chat-msg"><b>${p.new.player_name.replace(/<[^>]*>/g, "")}:</b> ${p.new.message_text.replace(/<[^>]*>/g, "")}</div>`;
                 box.scrollTop = box.scrollHeight;
             }).subscribe();
         }
@@ -324,4 +307,3 @@
     </script>
 </body>
 </html>
-
