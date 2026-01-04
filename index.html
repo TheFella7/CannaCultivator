@@ -3,112 +3,92 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Canna Cultivator - Secure Edition</title>
+    <title>Canna Cultivator</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://www.paypal.com/sdk/js?client-id=AZawPulf_LA1GNqlqUE_L6PC4UqJsan33_c5L9wEcOLTRK1itpzK1QrSwueuFyPlbaEV7U0JejX_Vd70&currency=GBP"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-tap-highlight-color: transparent; }
-        body { background: linear-gradient(135deg, #1a2e0e 0%, #2d5016 100%); color: #f0f7da; min-height: 100vh; padding: 0 10px 10px 10px; position: relative; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background: linear-gradient(135deg, #1a2e0e 0%, #2d5016 100%); color: #f0f7da; min-height: 100vh; padding: 10px; position: relative; }
         
-        /* Fixed Floating Message Notification */
+        /* OVERRIDE: Forced Top Notification */
         #msgNotification {
-            position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
-            background: #76ff03; color: #1a2e0e; padding: 10px 25px; border-radius: 50px;
-            font-weight: bold; font-size: 1.1rem; z-index: 99999; display: none;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.8); cursor: pointer;
-            border: 2px solid #fff; animation: popPulse 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: fixed !important; 
+            top: 20px !important; 
+            left: 50% !important; 
+            transform: translateX(-50%) !important;
+            background: #76ff03 !important; 
+            color: #1a2e0e !important; 
+            padding: 12px 25px !important; 
+            border-radius: 50px !important;
+            font-weight: 900 !important; 
+            font-size: 1.2rem !important; 
+            z-index: 9999999 !important; /* Maximum possible depth */
+            display: none;
+            box-shadow: 0 0 20px rgba(118, 255, 3, 0.6), 0 5px 15px rgba(0,0,0,0.5);
+            cursor: pointer;
+            border: 3px solid #fff !important;
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        @keyframes popPulse { 
-            0% { transform: translateX(-50%) scale(0); }
-            80% { transform: translateX(-50%) scale(1.1); }
-            100% { transform: translateX(-50%) scale(1); }
-        }
+        @keyframes popIn { 0% { transform: translateX(-50%) scale(0.5); opacity: 0; } 100% { transform: translateX(-50%) scale(1); opacity: 1; } }
 
-        .top-status-bar { background: rgba(0, 0, 0, 0.7); border-bottom: 2px solid #4caf50; margin: 0 -10px 15px -10px; padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; color: #76ff03; box-shadow: 0 2px 10px rgba(0,0,0,0.5); font-weight: bold; }
-        .container { max-width: 1200px; margin: 0 auto; background: rgba(20, 30, 15, 0.9); border-radius: 20px; padding: 20px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); border: 3px solid #4caf50; }
-        .header { text-align: center; padding: 5px; border-bottom: 3px solid #4caf50; margin-bottom: 20px; }
-        .game-title { font-size: clamp(1.8rem, 5vw, 3rem); color: #76ff03; text-shadow: 2px 2px 0 #1b3012; margin-bottom: 5px; }
-        .exp-container { width: 100%; background: #1b3012; height: 20px; border-radius: 10px; margin: 10px 0; overflow: hidden; border: 1px solid #4caf50; }
-        .exp-bar { height: 100%; background: linear-gradient(90deg, #76ff03, #4caf50); width: 0%; transition: width 0.3s; }
-        .game-area { display: flex; flex-wrap: wrap; gap: 20px; }
-        .main-garden { flex: 2; min-width: 280px; background: rgba(45, 70, 35, 0.5); border-radius: 15px; padding: 20px; text-align: center; border: 2px solid #4caf50; }
+        /* Rest of UI */
+        .top-status-bar { background: rgba(0, 0, 0, 0.8); border-bottom: 2px solid #4caf50; margin: -10px -10px 15px -10px; padding: 10px 15px; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; color: #76ff03; font-weight: bold; }
+        .container { max-width: 1200px; margin: 0 auto; background: rgba(20, 30, 15, 0.9); border-radius: 20px; padding: 20px; border: 3px solid #4caf50; }
+        .game-title { font-size: clamp(1.8rem, 5vw, 3rem); color: #76ff03; text-align: center; margin-bottom: 10px; }
+        .exp-container { width: 100%; background: #1b3012; height: 15px; border-radius: 10px; margin: 5px 0; border: 1px solid #4caf50; overflow: hidden; }
+        .exp-bar { height: 100%; background: #76ff03; width: 0%; transition: width 0.3s; }
+        .game-area { display: flex; flex-wrap: wrap; gap: 15px; }
+        .main-garden { flex: 2; min-width: 300px; background: rgba(45, 70, 35, 0.5); border-radius: 15px; padding: 20px; text-align: center; border: 2px solid #4caf50; }
         .stats-sidebar, .upgrades-shop { flex: 1; min-width: 250px; background: rgba(30, 45, 20, 0.7); border-radius: 15px; padding: 15px; border: 2px solid #388e3c; }
-        .section-title { color: #76ff03; font-size: 1.5em; margin-bottom: 15px; border-bottom: 1px solid #4caf50; padding-bottom: 5px; }
-        .click-area { width: clamp(200px, 40vw, 280px); height: clamp(200px, 40vw, 280px); margin: 20px auto; background: radial-gradient(circle, rgba(118, 255, 3, 0.2) 0%, rgba(0,0,0,0) 70%); border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.05s; position: relative; font-size: 120px; user-select: none; }
-        .click-area:active { transform: scale(0.92); }
-        .coins-display { font-size: 2.2em; color: #fff; margin: 10px 0; text-shadow: 2px 2px 0 #000; }
-        .herb-count { color: #aed581; font-weight: bold; margin: 5px 0; }
-        .upgrade-item { background: rgba(60, 90, 40, 0.4); padding: 12px; margin: 8px 0; border-radius: 10px; border: 1px solid #4caf50; }
-        .upgrade-item b { display: block; color: #76ff03; }
-        .upgrade-desc { font-size: 0.8em; color: #ccc; margin-bottom: 5px; font-style: italic; }
-        .prestige-box { background: rgba(118, 255, 3, 0.1); border: 2px dashed #76ff03; padding: 15px; margin-top: 15px; border-radius: 10px; text-align: center; }
-        button { background: linear-gradient(to bottom, #4caf50, #2e7d32); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 5px; }
-        button:disabled { opacity: 0.4; cursor: not-allowed; background: #444; }
-        .paypal-box { margin-top: 15px; padding: 12px; background: rgba(0,0,0,0.5); border: 2px solid #ffc107; border-radius: 12px; }
-        #chat-box { height: 180px; background: rgba(0,0,0,0.3); border-radius: 5px; margin-top: 10px; padding: 8px; overflow-y: auto; font-size: 0.85em; border: 1px solid #388e3c; color: #fff; scroll-behavior: smooth; }
-        .leaderboard-item { display: flex; flex-direction: column; padding: 8px; border-bottom: 1px solid #388e3c; }
-        .you-row { border: 1px solid #76ff03; background: rgba(118,255,3,0.1); }
-        .lb-stats { display: flex; justify-content: space-between; font-size: 0.85em; }
+        .click-area { width: 220px; height: 220px; margin: 20px auto; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 100px; user-select: none; transition: transform 0.1s; background: radial-gradient(circle, rgba(118,255,3,0.2) 0%, transparent 70%); }
+        .click-area:active { transform: scale(0.9); }
+        .coins-display { font-size: 2em; color: #fff; margin: 10px 0; }
+        #chat-box { height: 200px; background: rgba(0,0,0,0.5); border: 1px solid #4caf50; border-radius: 8px; margin: 10px 0; padding: 10px; overflow-y: auto; font-size: 0.85em; }
+        .upgrade-item { background: rgba(255,255,255,0.05); padding: 10px; margin: 5px 0; border-radius: 8px; border: 1px solid #4caf50; }
+        button { background: #4caf50; color: #fff; border: none; padding: 10px; border-radius: 5px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 5px; }
+        button:disabled { background: #333; color: #777; }
     </style>
 </head>
 <body>
+
     <div id="msgNotification" onclick="scrollToChat()">
-        💬 <span id="unreadCount">0</span>
+        💬 <span id="unreadCount">0</span> UNREAD
     </div>
 
     <div class="top-status-bar">
-        <div class="status-item">📅 <span id="liveDate">03/01/2026</span></div>
-        <div class="status-item">🕒 <span id="liveClock">00:00:00</span></div>
-        <div class="status-item">👥 <span id="onlineCount">1</span> Online</div>
+        <div>📅 <span id="liveDate"></span></div>
+        <div>🕒 <span id="liveClock"></span></div>
+        <div>👥 <span id="onlineCount">1</span> Online</div>
     </div>
 
     <div class="container">
-        <div class="header">
-            <h1 class="game-title">🌿 Canna Cultivator</h1>
-            <p>Welcome, <span id="playerNameDisplay" style="color:#76ff03">...</span>!</p>
-            <div style="margin-top: 10px;">
-                <span>Level: <b id="levelDisplay">1</b></span>
-                <div class="exp-container"><div class="exp-bar" id="expBar"></div></div>
-                <small id="expText">0 / 5,000 EXP</small>
-            </div>
+        <h1 class="game-title">🌿 Canna Cultivator</h1>
+        <div style="text-align:center; margin-bottom:20px;">
+            Grower: <b id="playerNameDisplay" style="color:#76ff03">...</b> | 
+            Level: <b id="levelDisplay">1</b>
+            <div class="exp-container"><div class="exp-bar" id="expBar"></div></div>
         </div>
 
         <div class="game-area">
             <div class="main-garden">
-                <h2 class="section-title">Cultivation</h2>
-                <div class="tap-stat" style="color:#76ff03; font-weight:bold;">Tap Value: +<span id="tapEarned">1</span>g</div>
                 <div class="click-area" id="clickArea">🌿</div>
                 <div class="coins-display" id="coinsDisplay">0 Grams</div>
-                <p class="herb-count" id="hpsDisplay">0 g/sec</p>
-                
-                <div class="prestige-box">
-                    <div style="color:#76ff03; font-weight: bold;">Prestige: <span id="prestigeMult">1</span></div>
-                    <button id="prestigeBtn" onclick="buyPrestige()">Buy Prestige</button>
-                    <div class="paypal-box">
-                        <p style="color:#fff; font-weight: bold;">x20 PERMANENT BOOST</p>
-                        <p style="color:#ffc107; font-weight: bold; margin: 5px 0;">£4.99</p>
-                        <p style="color:#ffc107; font-size: 0.8em; margin-bottom: 10px;">Stacks: <span id="stackCount">0</span></p>
-                        <div id="paypal-button-container"></div>
-                    </div>
-                </div>
+                <div id="hpsDisplay" style="color:#aed581">0 g/sec</div>
+                <button onclick="buyPrestige()" id="prestigeBtn">Buy Prestige</button>
             </div>
 
             <div class="stats-sidebar">
-                <h2 class="section-title">Leaderboard</h2>
-                <div id="leaderboard">Loading...</div>
-
-                <h2 class="section-title" style="margin-top:20px;">Global Chat</h2>
-                <div id="chat-box" onscroll="checkChatRead()"></div>
-                <input type="text" id="chatInput" placeholder="Press Enter to chat..." style="width:100%; background:#1b3012; border:1px solid #4caf50; color:#fff; padding:5px; margin-top:5px; border-radius:5px;">
-
-                <h2 class="section-title" style="margin-top:20px;">The Crew</h2>
-                <div id="crewButtons"></div>
+                <h3>Global Chat</h3>
+                <div id="chat-box"></div>
+                <input type="text" id="chatInput" placeholder="Type message..." style="width:100%; padding:8px; border-radius:5px; border:none; background:#111; color:#fff;">
+                <button onclick="testNotify()" style="background:#222; font-size:0.7em; margin-top:10px;">Test Notification</button>
+                <h3 style="margin-top:20px;">Leaderboard</h3>
+                <div id="leaderboard" style="font-size:0.8em"></div>
             </div>
 
             <div class="upgrades-shop">
-                <h2 class="section-title">Strain Masteries</h2>
-                <div id="strainList"></div>
-                <button onclick="hardReset()" style="background: #7d2e2e; margin-top: 20px; font-size: 0.8em;">RESET GAME (Keep Purchases)</button>
+                <h3>Shop</h3>
+                <div id="shopItems"></div>
             </div>
         </div>
     </div>
@@ -119,204 +99,74 @@
         const sb = supabase.createClient(SB_URL, SB_KEY);
 
         let state = {
-            name: "", grams: 0, level: 1, exp: 0, prestige: 1, donations: 0,
+            name: localStorage.getItem('cannaUsername') || "Grower" + Math.floor(Math.random()*999),
+            grams: 0, level: 1, exp: 0, prestige: 1, donations: 0,
             crew: { trimmers: { n: 0, c: 20, p: 1 }, growers: { n: 0, c: 150, p: 5 } },
-            strains: { skunk: { n: 0, c: 1000, p: 25 }, haze: { n: 0, c: 5000, p: 150 }, kush: { n: 0, c: 25000, p: 800 }, widow: { n: 0, c: 150000, p: 4000 }, diesel: { n: 0, c: 1000000, p: 25000 } }
+            strains: { skunk: { n: 0, c: 1000, p: 25 }, haze: { n: 0, c: 5000, p: 150 } }
         };
 
-        let unreadCount = 0;
-        let lastClickTime = 0;
-        const MIN_DELAY = 60;
+        let unread = 0;
 
-        function checkChatRead() {
-            const cb = document.getElementById('chat-box');
-            // If scrolled near bottom
-            if (cb.scrollHeight - cb.scrollTop <= cb.clientHeight + 60) {
-                unreadCount = 0;
-                document.getElementById('msgNotification').style.display = 'none';
-            }
+        function testNotify() {
+            unread++;
+            document.getElementById('unreadCount').innerText = unread;
+            document.getElementById('msgNotification').style.display = 'block';
         }
 
         function scrollToChat() {
             const cb = document.getElementById('chat-box');
             cb.scrollTop = cb.scrollHeight;
-            unreadCount = 0;
+            unread = 0;
             document.getElementById('msgNotification').style.display = 'none';
         }
 
-        function formatNum(n) {
-            if (!n || n === 0) return "0"; 
-            if (n < 1000) return Math.floor(n).toString();
-            const suffixes = ["", "k", "m", "b", "t", "a", "b", "c", "d"];
-            const suffixNum = Math.floor(("" + Math.floor(n)).length / 3);
-            let shortValue = parseFloat((suffixNum != 0 ? (n / Math.pow(1000, suffixNum)) : n).toPrecision(3));
-            return shortValue + suffixes[suffixNum];
-        }
-
-        function getGlobalBoost() { return state.prestige * (1 + (state.level * 0.1)) * Math.pow(20, state.donations); }
-        function getExpRequired(lvl) { return Math.floor(Math.pow(lvl, 3.5)) * 5000; }
-
-        function updateUI() {
-            const boost = getGlobalBoost();
-            let bh = 0;
-            Object.values(state.crew).forEach(c => bh += c.n * c.p);
-            Object.values(state.strains).forEach(s => bh += s.n * s.p);
-            document.getElementById('coinsDisplay').innerText = formatNum(state.grams) + " Grams";
-            document.getElementById('hpsDisplay').innerText = formatNum(bh * boost) + " g/sec";
-            document.getElementById('tapEarned').innerText = formatNum((1 + (bh * 0.1)) * boost);
-            document.getElementById('prestigeMult').innerText = state.prestige;
-            document.getElementById('stackCount').innerText = state.donations;
-
-            const nextP = 100000 * Math.pow(state.prestige, 3);
-            let pMax = 0, totalP = 0, tempP = state.prestige;
-            while(state.grams >= totalP + (100000 * Math.pow(tempP, 3))) { totalP += (100000 * Math.pow(tempP, 3)); tempP++; pMax++; if(pMax > 100) break; }
-            document.getElementById('prestigeBtn').innerText = pMax > 0 ? `Prestige (+${pMax})` : `Next: ${formatNum(nextP)}g`;
-            document.getElementById('prestigeBtn').disabled = pMax === 0;
-
-            const req = getExpRequired(state.level);
-            document.getElementById('levelDisplay').innerText = state.level;
-            document.getElementById('expBar').style.width = `${Math.min((state.exp / req) * 100, 100)}%`;
-            document.getElementById('expText').innerText = `${formatNum(state.exp)} / ${formatNum(req)} EXP`;
-
-            document.getElementById('crewButtons').innerHTML = Object.keys(state.crew).map(id => {
-                let cnt = 0, tot = 0, nxt = state.crew[id].c;
-                while (state.grams >= tot + nxt) { tot += nxt; nxt = Math.floor(nxt * 1.35); cnt++; }
-                return `<div class="upgrade-item"><b>${id.toUpperCase()}</b><div class="upgrade-desc">+${state.crew[id].p}g/sec each</div><div class="upgrade-desc">Owned: ${state.crew[id].n}</div><button onclick="buyMaxCrew('${id}')" ${cnt === 0 ? 'disabled' : ''}>${cnt > 0 ? `Buy Max (+${cnt})` : `Next: ${formatNum(state.crew[id].c)}`}</button></div>`;
-            }).join('');
-
-            document.getElementById('strainList').innerHTML = Object.keys(state.strains).map(id => {
-                let cnt = 0, tot = 0, nxt = state.strains[id].c;
-                while (state.grams >= tot + nxt) { tot += nxt; nxt = Math.floor(nxt * 1.45); cnt++; }
-                return `<div class="upgrade-item"><b>${id.toUpperCase()}</b><div class="upgrade-desc">+${state.strains[id].p}g/sec</div><div class="upgrade-desc">Grade: ${state.strains[id].n}</div><button onclick="buyMaxStrain('${id}')" ${cnt === 0 ? 'disabled' : ''}>${cnt > 0 ? `Upgrade Max (+${cnt})` : `Next: ${formatNum(state.strains[id].c)}`}</button></div>`;
-            }).join('');
-        }
-
-        function buyPrestige() {
-            let pMax = 0, totalP = 0, tempP = state.prestige;
-            while(state.grams >= totalP + (100000 * Math.pow(tempP, 3))) { totalP += (100000 * Math.pow(tempP, 3)); tempP++; pMax++; }
-            if (pMax > 0 && confirm(`Prestige now for a +${pMax} Prestige increase?`)) {
-                state.prestige += pMax; state.grams = 0; state.level = 1; state.exp = 0;
-                state.crew = { trimmers: { n: 0, c: 20, p: 1 }, growers: { n: 0, c: 150, p: 5 } };
-                state.strains = { skunk: { n: 0, c: 1000, p: 25 }, haze: { n: 0, c: 5000, p: 150 }, kush: { n: 0, c: 25000, p: 800 }, widow: { n: 0, c: 150000, p: 4000 }, diesel: { n: 0, c: 1000000, p: 25000 } };
-                updateUI(); 
-            }
-        }
-
-        function buyMaxCrew(id) {
-            let tot = 0, nxt = state.crew[id].c, cnt = 0;
-            while (state.grams >= tot + nxt) { tot += nxt; nxt = Math.floor(nxt * 1.35); cnt++; }
-            if(cnt > 0) { state.grams -= tot; state.crew[id].n += cnt; state.crew[id].c = nxt; updateUI(); }
-        }
-
-        function buyMaxStrain(id) {
-            let tot = 0, nxt = state.strains[id].c, cnt = 0;
-            while (state.grams >= tot + nxt) { tot += nxt; nxt = Math.floor(nxt * 1.45); cnt++; }
-            if(cnt > 0) { state.grams -= tot; state.strains[id].n += cnt; state.strains[id].c = nxt; updateUI(); }
-        }
-
-        function hardReset() {
-            if(confirm("Full Reset? Everything will be wiped except your Name and PayPal purchases!")) {
-                const kn = state.name; const kd = state.donations;
-                state = {
-                    name: kn, grams: 0, level: 1, exp: 0, prestige: 1, donations: kd,
-                    crew: { trimmers: { n: 0, c: 20, p: 1 }, growers: { n: 0, c: 150, p: 5 } },
-                    strains: { skunk: { n: 0, c: 1000, p: 25 }, haze: { n: 0, c: 5000, p: 150 }, kush: { n: 0, c: 25000, p: 800 }, widow: { n: 0, c: 150000, p: 4000 }, diesel: { n: 0, c: 1000000, p: 25000 } }
-                };
-                updateUI(); alert("Game Reset successfully!");
-            }
-        }
-
         async function init() {
-            let sn = localStorage.getItem('cannaUsername');
-            if(!sn) { sn = (prompt("Grower Name:") || "Grower" + Math.floor(Math.random()*99)).replace(/<[^>]*>/g, "").substring(0, 15); localStorage.setItem('cannaUsername', sn); }
-            state.name = sn; document.getElementById('playerNameDisplay').innerText = state.name;
-
-            try {
-                const { data } = await sb.from('leaderboard').select('game_state').eq('player_name', state.name).single();
-                if(data && data.game_state) {
-                    if (Array.isArray(data.game_state.strains)) { data.game_state.strains = { skunk: { n: 0, c: 1000, p: 25 }, haze: { n: 0, c: 5000, p: 150 }, kush: { n: 0, c: 25000, p: 800 }, widow: { n: 0, c: 150000, p: 4000 }, diesel: { n: 0, c: 1000000, p: 25000 } }; }
-                    state = {...state, ...data.game_state};
-                }
-            } catch(e) {}
-
-            if(window.paypal) {
-                paypal.Buttons({
-                    createOrder: (d, a) => a.order.create({ purchase_units: [{ amount: { value: '4.99' } }] }),
-                    onApprove: (d, a) => a.order.capture().then(() => { state.donations++; updateUI(); })
-                }).render('#paypal-button-container');
-            }
-
-            const cb = document.getElementById('chat-box');
-            try {
-                const { data: hist } = await sb.from('messages').select('player_name, message_text').order('created_at', {ascending: false}).limit(20);
-                if(hist) cb.innerHTML = hist.reverse().map(m => `<div><b>${m.player_name}:</b> ${m.message_text}</div>`).join('');
-                cb.scrollTop = cb.scrollHeight;
-            } catch(e) {}
-
-            sb.channel('chat_channel').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, p => {
+            document.getElementById('playerNameDisplay').innerText = state.name;
+            
+            // Listen for Chat
+            sb.channel('chat').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, p => {
                 const cb = document.getElementById('chat-box');
-                const isAtBottom = cb.scrollHeight - cb.scrollTop <= cb.clientHeight + 60;
-                const isOtherPlayer = p.new.player_name !== state.name;
-                
                 cb.innerHTML += `<div><b>${p.new.player_name}:</b> ${p.new.message_text}</div>`;
                 
-                if (isAtBottom) {
-                    cb.scrollTop = cb.scrollHeight;
-                    unreadCount = 0;
-                    document.getElementById('msgNotification').style.display = 'none';
-                } else if (isOtherPlayer) {
-                    unreadCount++;
-                    document.getElementById('unreadCount').innerText = unreadCount;
+                // If message isn't from us, show notification
+                if (p.new.player_name !== state.name) {
+                    unread++;
+                    document.getElementById('unreadCount').innerText = unread;
                     document.getElementById('msgNotification').style.display = 'block';
+                }
+                
+                // If we are already at the bottom, auto-scroll and clear
+                if (cb.scrollHeight - cb.scrollTop <= cb.clientHeight + 50) {
+                    cb.scrollTop = cb.scrollHeight;
+                    unread = 0;
+                    document.getElementById('msgNotification').style.display = 'none';
                 }
             }).subscribe();
 
             document.getElementById('chatInput').onkeypress = async e => {
                 if(e.key === 'Enter' && e.target.value.trim()){
-                    const m = e.target.value.substring(0, 80); e.target.value = '';
+                    const m = e.target.value; e.target.value = '';
                     await sb.from('messages').insert([{player_name: state.name, message_text: m}]);
                 }
             };
 
+            // Game Loop
             setInterval(() => {
-                let bh = 0; Object.values(state.crew).forEach(c => bh += c.n * c.p);
-                Object.values(state.strains).forEach(s => bh += s.n * s.p);
-                const boost = getGlobalBoost();
-                state.grams += (bh * boost) / 10; state.exp += ((bh * boost) / 10) * state.prestige;
-                if(state.exp >= getExpRequired(state.level)) { state.exp -= getExpRequired(state.level); state.level++; }
-                updateUI();
-            }, 100);
-
-            setInterval(async () => {
-                try {
-                    await sb.from('leaderboard').upsert({ player_name: state.name, grams: Math.floor(state.grams), game_state: state, player_level: state.level, last_active: new Date().toISOString() });
-                    const { count } = await sb.from('leaderboard').select('*', { count: 'exact', head: true }).gt('last_active', new Date(Date.now() - 300000).toISOString());
-                    document.getElementById('onlineCount').innerText = count || 1;
-                    const { data: lb } = await sb.from('leaderboard').select('player_name, player_level, game_state').order('player_level', {ascending:false}).limit(10);
-                    if(lb) {
-                        document.getElementById('leaderboard').innerHTML = lb.map((p,i) => {
-                            return `<div class="leaderboard-item ${p.player_name === state.name ? 'you-row' : ''}">
-                                <b>#${i+1} ${p.player_name}</b>
-                                <div class="lb-stats"><span>Level ${p.player_level}</span><span>Prestige ${p.game_state?.prestige || 1}</span></div>
-                            </div>`;
-                        }).join('');
-                    }
-                } catch(e) {}
-            }, 5000);
-
-            document.getElementById('clickArea').onclick = () => { 
-                if(Date.now() - lastClickTime < MIN_DELAY) return;
-                lastClickTime = Date.now();
-                let bh = 0; Object.values(state.crew).forEach(c => bh += c.n * c.p);
-                Object.values(state.strains).forEach(s => bh += s.n * s.p);
-                state.grams += (1 + (bh * 0.1)) * getGlobalBoost(); state.exp += (25 * state.prestige); updateUI(); 
-            };
-            
-            setInterval(() => {
+                let hps = (state.crew.trimmers.n * 1 + state.crew.growers.n * 5 + state.strains.skunk.n * 25) * state.prestige;
+                state.grams += hps/10;
+                document.getElementById('coinsDisplay').innerText = Math.floor(state.grams) + " Grams";
+                document.getElementById('hpsDisplay').innerText = hps + " g/sec";
+                
                 document.getElementById('liveClock').innerText = new Date().toLocaleTimeString();
                 document.getElementById('liveDate').innerText = new Date().toLocaleDateString();
-            }, 1000);
+            }, 100);
         }
+
+        document.getElementById('clickArea').onclick = () => {
+            state.grams += state.prestige;
+            document.getElementById('coinsDisplay').innerText = Math.floor(state.grams) + " Grams";
+        };
+
         window.onload = init;
     </script>
 </body>
