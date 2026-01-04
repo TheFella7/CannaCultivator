@@ -53,7 +53,7 @@
 </head>
 <body>
     <div id="msgNotification" onclick="scrollToChat()">
-        💬 <span id="unreadCount">0</span>
+        💬 <span id="unreadCount">0</span> New Messages
     </div>
 
     <div class="top-status-bar">
@@ -130,8 +130,8 @@
 
         function checkChatRead() {
             const cb = document.getElementById('chat-box');
-            // If scrolled near bottom
-            if (cb.scrollHeight - cb.scrollTop <= cb.clientHeight + 60) {
+            // If user scrolls to bottom, reset notification
+            if (cb.scrollHeight - cb.scrollTop <= cb.clientHeight + 20) {
                 unreadCount = 0;
                 document.getElementById('msgNotification').style.display = 'none';
             }
@@ -258,7 +258,9 @@
                 const isAtBottom = cb.scrollHeight - cb.scrollTop <= cb.clientHeight + 60;
                 const isOtherPlayer = p.new.player_name !== state.name;
                 
-                cb.innerHTML += `<div><b>${p.new.player_name}:</b> ${p.new.message_text}</div>`;
+                const newMsg = document.createElement('div');
+                newMsg.innerHTML = `<b>${p.new.player_name}:</b> ${p.new.message_text}`;
+                cb.appendChild(newMsg);
                 
                 if (isAtBottom) {
                     cb.scrollTop = cb.scrollHeight;
@@ -274,6 +276,8 @@
             document.getElementById('chatInput').onkeypress = async e => {
                 if(e.key === 'Enter' && e.target.value.trim()){
                     const m = e.target.value.substring(0, 80); e.target.value = '';
+                    const cb = document.getElementById('chat-box');
+                    cb.scrollTop = cb.scrollHeight; // Scroll immediately for self
                     await sb.from('messages').insert([{player_name: state.name, message_text: m}]);
                 }
             };
