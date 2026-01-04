@@ -3,32 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Canna Cultivator - Secure & Persistent</title>
+    <title>Canna Cultivator - Classic Look</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://www.paypal.com/sdk/js?client-id=AZawPulf_LA1GNqlqUE_L6PC4UqJsan33_c5L9wEcOLTRK1itpzK1QrSwueuFyPlbaEV7U0JejX_Vd70&currency=GBP"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; -webkit-tap-highlight-color: transparent; }
-        body { background: linear-gradient(135deg, #1a2e0e 0%, #2d5016 100%); color: #f0f7da; min-height: 100vh; padding: 0 10px 10px 10px; }
+        body { background: linear-gradient(135deg, #1a2e0e 0%, #2d5016 100%); color: #f0f7da; min-height: 100vh; padding: 10px; }
         
-        .top-status-bar {
-            background: rgba(0, 0, 0, 0.7);
-            border-bottom: 2px solid #4caf50;
-            margin: 0 -10px 15px -10px;
-            padding: 8px 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.9rem;
-            color: #76ff03;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-            font-weight: bold;
-        }
-        .status-item { display: flex; align-items: center; gap: 5px; }
-
         .container { max-width: 1200px; margin: 0 auto; background: rgba(20, 30, 15, 0.9); border-radius: 20px; padding: 20px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); border: 3px solid #4caf50; }
-        .header { text-align: center; padding: 5px; border-bottom: 3px solid #4caf50; margin-bottom: 20px; }
-        .game-title { font-size: clamp(1.8rem, 5vw, 3rem); color: #76ff03; text-shadow: 2px 2px 0 #1b3012; margin-bottom: 5px; }
         
+        /* REVERTED HEADER STYLE */
+        .header { text-align: center; padding: 10px; border-bottom: 3px solid #4caf50; margin-bottom: 20px; position: relative; }
+        .live-info { position: absolute; top: 5px; right: 15px; text-align: right; font-size: 0.85em; color: #aed581; font-weight: bold; }
+        
+        .game-title { font-size: clamp(1.8rem, 5vw, 3rem); color: #76ff03; text-shadow: 2px 2px 0 #1b3012; margin-bottom: 5px; }
         .exp-container { width: 100%; background: #1b3012; height: 20px; border-radius: 10px; margin: 10px 0; overflow: hidden; border: 1px solid #4caf50; }
         .exp-bar { height: 100%; background: linear-gradient(90deg, #76ff03, #4caf50); width: 0%; transition: width 0.3s; }
         
@@ -60,16 +48,15 @@
     </style>
 </head>
 <body>
-    <div class="top-status-bar">
-        <div class="status-item">📅 <span id="liveDate">--/--/----</span></div>
-        <div class="status-item">🕒 <span id="liveClock">00:00:00</span></div>
-        <div class="status-item">👥 <span id="onlineCount">1</span> Online</div>
-    </div>
-
     <div class="container">
         <div class="header">
+            <div class="live-info">
+                <div id="liveClock">00:00:00</div>
+                <div id="liveDate">--/--/----</div>
+                <div style="color:#76ff03">Online: <span id="onlineCount">1</span></div>
+            </div>
             <h1 class="game-title">🌿 Canna Cultivator</h1>
-            <p>Grower: <span id="playerNameDisplay" style="color:#76ff03">...</span></p>
+            <p>Welcome, <span id="playerNameDisplay" style="color:#76ff03">...</span>!</p>
             <div style="margin-top: 10px;">
                 <span>Level: <b id="levelDisplay">1</b></span>
                 <div class="exp-container"><div class="exp-bar" id="expBar"></div></div>
@@ -80,13 +67,15 @@
         <div class="game-area">
             <div class="main-garden">
                 <h2 class="section-title">Cultivation</h2>
-                <div class="tap-stat">Tap: +<span id="tapEarned">1</span>g</div>
+                <div class="tap-stat">Tap Value: +<span id="tapEarned">1</span>g</div>
                 <div class="click-area" id="clickArea">🌿</div>
                 <div class="coins-display" id="coinsDisplay">0 Grams</div>
                 <p class="herb-count" id="hpsDisplay">0 g/sec</p>
                 
                 <div class="prestige-box">
+                    <div style="color:#76ff03; font-weight: bold;">Multiplier: x<span id="prestigeMult">1</span></div>
                     <button id="prestigeBtn" onclick="buyPrestige()">Buy Prestige</button>
+                    
                     <div class="paypal-box">
                         <p style="color:#ffc107; font-weight: bold;">x20 Boost Stacks: <span id="stackCount">0</span></p>
                         <div id="paypal-button-container" style="margin-top:10px;"></div>
@@ -96,8 +85,8 @@
 
             <div class="stats-sidebar">
                 <h2 class="section-title">Global Chat</h2>
-                <div id="chat-box">Loading messages...</div>
-                <input type="text" id="chatInput" placeholder="Say something..." style="width:100%; background:#1b3012; border:1px solid #4caf50; color:#fff; padding:8px; margin-top:5px; border-radius:5px;">
+                <div id="chat-box">Loading chat history...</div>
+                <input type="text" id="chatInput" placeholder="Press Enter to chat..." style="width:100%; background:#1b3012; border:1px solid #4caf50; color:#fff; padding:8px; margin-top:5px; border-radius:5px;">
 
                 <h2 class="section-title" style="margin-top:20px;">Leaderboard</h2>
                 <div id="leaderboard">Loading...</div>
@@ -126,7 +115,7 @@
         };
 
         let lastClickTime = 0;
-        const MIN_DELAY = 60; 
+        const MIN_DELAY = 60;
 
         const staticData = {
             upgrades: [
@@ -171,6 +160,7 @@
             document.getElementById('coinsDisplay').innerText = formatNum(state.grams) + " Grams";
             document.getElementById('hpsDisplay').innerText = formatNum(hps) + " g/sec";
             document.getElementById('tapEarned').innerText = formatNum(m.tap);
+            document.getElementById('prestigeMult').innerText = formatNum(state.prestige);
             document.getElementById('stackCount').innerText = state.donations;
 
             const nextP = 100000 * Math.pow(state.prestige, 3);
@@ -217,7 +207,6 @@
 
         function hardReset() { if(confirm("Reset everything?")) { localStorage.clear(); location.reload(); } }
 
-        // --- NEW CHAT FUNCTIONS ---
         async function loadChatHistory() {
             const { data } = await sb.from('messages').select('player_name, message_text').order('created_at', {ascending: false}).limit(40);
             if(data) {
@@ -244,10 +233,8 @@
                 onApprove: (d, a) => a.order.capture().then(() => { state.donations++; updateUI(); })
             }).render('#paypal-button-container');
 
-            // Load Chat
             loadChatHistory();
 
-            // Real-time loops
             setInterval(() => {
                 const m = getMults();
                 const hps = (state.crew.trimmers.n * 1 + state.crew.growers.n * 5) * m.auto;
@@ -263,14 +250,12 @@
                 document.getElementById('liveDate').innerText = now.toLocaleDateString();
             }, 1000);
 
-            // Sync Game & Online Count
             setInterval(async () => {
                 await sb.from('leaderboard').upsert({ player_name: state.name, grams: Math.floor(state.grams), game_state: state, player_level: state.level, last_active: new Date().toISOString() }, { onConflict: 'player_name' });
                 const { count } = await sb.from('leaderboard').select('*', { count: 'exact', head: true }).gt('last_active', new Date(Date.now() - 300000).toISOString());
                 document.getElementById('onlineCount').innerText = count || 1;
             }, 5000);
 
-            // Leaderboard Update
             setInterval(async () => {
                 const { data } = await sb.from('leaderboard').select('player_name, player_level, grams').order('grams', {ascending:false}).limit(10);
                 if(data) document.getElementById('leaderboard').innerHTML = data.map((p,i)=>`
