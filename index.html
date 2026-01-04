@@ -82,7 +82,8 @@
                 <p class="herb-count" id="hpsDisplay">0 g/sec</p>
                 
                 <div class="prestige-box">
-                    <div style="color:#76ff03; font-weight: bold;">Prestige: <span id="prestigeMult">1</span></div>
+                    <div style="color:#76ff03; font-weight: bold;">Prestiges: <span id="prestigeMult">1</span></div>
+                    <div style="color:#fff; font-size: 0.9em; margin-bottom: 5px;">Total Multiplier: x<span id="totalBoostDisplay">1</span></div>
                     <button id="prestigeBtn" onclick="buyPrestige()">Buy Prestige</button>
                     <div class="paypal-box">
                         <p style="color:#fff; font-weight: bold;">x20 PERMANENT BOOST</p>
@@ -130,7 +131,6 @@
 
         function checkChatRead() {
             const cb = document.getElementById('chat-box');
-            // If user scrolls to bottom, reset notification
             if (cb.scrollHeight - cb.scrollTop <= cb.clientHeight + 20) {
                 unreadCount = 0;
                 document.getElementById('msgNotification').style.display = 'none';
@@ -153,23 +153,33 @@
             return shortValue + suffixes[suffixNum];
         }
 
-        function getGlobalBoost() { return state.prestige * (1 + (state.level * 0.1)) * Math.pow(20, state.donations); }
-        function getExpRequired(lvl) { return Math.floor(Math.pow(lvl, 3.5)) * 5000; }
+        // Calculation updated: Prestiges (x1 each) * Level Multiplier * Donations (x20 each)
+        function getGlobalBoost() { 
+            return state.prestige * (1 + (state.level * 0.1)) * Math.pow(20, state.donations); 
+        }
 
         function updateUI() {
             const boost = getGlobalBoost();
             let bh = 0;
             Object.values(state.crew).forEach(c => bh += c.n * c.p);
             Object.values(state.strains).forEach(s => bh += s.n * s.p);
+            
             document.getElementById('coinsDisplay').innerText = formatNum(state.grams) + " Grams";
             document.getElementById('hpsDisplay').innerText = formatNum(bh * boost) + " g/sec";
             document.getElementById('tapEarned').innerText = formatNum((1 + (bh * 0.1)) * boost);
             document.getElementById('prestigeMult').innerText = state.prestige;
             document.getElementById('stackCount').innerText = state.donations;
+            
+            // Display total permanent multiplier (Prestiges * PayPal Boosts)
+            const totalPermMult = state.prestige * Math.pow(20, state.donations);
+            document.getElementById('totalBoostDisplay').innerText = formatNum(totalPermMult);
 
             const nextP = 100000 * Math.pow(state.prestige, 3);
             let pMax = 0, totalP = 0, tempP = state.prestige;
-            while(state.grams >= totalP + (100000 * Math.pow(tempP, 3))) { totalP += (100000 * Math.pow(tempP, 3)); tempP++; pMax++; if(pMax > 100) break; }
+            while(state.grams >= totalP + (100000 * Math.pow(tempP, 3))) { 
+                totalP += (100000 * Math.pow(tempP, 3)); tempP++; pMax++; 
+                if(pMax > 100) break; 
+            }
             document.getElementById('prestigeBtn').innerText = pMax > 0 ? `Prestige (+${pMax})` : `Next: ${formatNum(nextP)}g`;
             document.getElementById('prestigeBtn').disabled = pMax === 0;
 
@@ -226,6 +236,8 @@
             }
         }
 
+        function getExpRequired(lvl) { return Math.floor(Math.pow(lvl, 3.5)) * 5000; }
+
         async function init() {
             let sn = localStorage.getItem('cannaUsername');
             if(!sn) { sn = (prompt("Grower Name:") || "Grower" + Math.floor(Math.random()*99)).replace(/<[^>]*>/g, "").substring(0, 15); localStorage.setItem('cannaUsername', sn); }
@@ -234,7 +246,9 @@
             try {
                 const { data } = await sb.from('leaderboard').select('game_state').eq('player_name', state.name).single();
                 if(data && data.game_state) {
-                    if (Array.isArray(data.game_state.strains)) { data.game_state.strains = { skunk: { n: 0, c: 1000, p: 25 }, haze: { n: 0, c: 5000, p: 150 }, kush: { n: 0, c: 25000, p: 800 }, widow: { n: 0, c: 150000, p: 4000 }, diesel: { n: 0, c: 1000000, p: 25000 } }; }
+                    if (Array.isArray(data.game_state.strains)) { 
+                        data.game_state.strains = { skunk: { n: 0, c: 1000, p: 25 }, haze: { n: 0, c: 5000, p: 150 }, kush: { n: 0, c: 25000, p: 800 }, widow: { n: 0, c: 150000, p: 4000 }, diesel: { n: 0, c: 1000000, p: 25000 } }; 
+                    }
                     state = {...state, ...data.game_state};
                 }
             } catch(e) {}
@@ -277,7 +291,7 @@
                 if(e.key === 'Enter' && e.target.value.trim()){
                     const m = e.target.value.substring(0, 80); e.target.value = '';
                     const cb = document.getElementById('chat-box');
-                    cb.scrollTop = cb.scrollHeight; // Scroll immediately for self
+                    cb.scrollTop = cb.scrollHeight;
                     await sb.from('messages').insert([{player_name: state.name, message_text: m}]);
                 }
             };
@@ -301,7 +315,7 @@
                         document.getElementById('leaderboard').innerHTML = lb.map((p,i) => {
                             return `<div class="leaderboard-item ${p.player_name === state.name ? 'you-row' : ''}">
                                 <b>#${i+1} ${p.player_name}</b>
-                                <div class="lb-stats"><span>Level ${p.player_level}</span><span>Prestige ${p.game_state?.prestige || 1}</span></div>
+                                <div class="lb-stats"><span>Level ${p.player_level}</span><span>Prestiges ${p.game_state?.prestige || 1}</span></div>
                             </div>`;
                         }).join('');
                     }
