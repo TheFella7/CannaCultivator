@@ -61,7 +61,8 @@
                 <p class="herb-count" id="hpsDisplay">0 g/sec</p>
                 
                 <div class="prestige-box">
-                    <div style="color:#76ff03; font-weight: bold;">Multiplier: x<span id="prestigeMult">1</span></div>
+                    <div style="color:#76ff03; font-weight: bold;">Prestige Multiplier: x<span id="prestigeMult">1</span></div>
+                    <div style="color:#ffc107; font-size: 0.9em;">Donation Boost: x<span id="donationMultDisplay">1</span></div>
                     <button id="prestigeBtn" onclick="buyPrestige()">Buy Prestige</button>
                     <div class="paypal-box">
                         <p style="color:#fff; font-weight: bold;">x20 PERMANENT BOOST</p>
@@ -137,8 +138,10 @@
                 const u = staticData.upgrades.find(x => x.id === id);
                 if(u) { if(u.type === 'tap') tap *= u.x; else auto *= u.x; }
             });
-            const global = state.prestige * (1 + (state.level * 0.1)) * Math.pow(20, state.donations) * sMult;
-            return { tap: tap * global, auto: auto * global };
+            // Donation boost: 20 raised to the power of number of donations (stacks x20 each time)
+            const donationBoost = Math.pow(20, state.donations);
+            const global = state.prestige * (1 + (state.level * 0.1)) * donationBoost * sMult;
+            return { tap: tap * global, auto: auto * global, donation: donationBoost };
         }
 
         function getExpRequired(lvl) { return Math.floor(Math.pow(lvl, 3.5)) * 5000; }
@@ -150,6 +153,7 @@
             document.getElementById('hpsDisplay').innerText = formatNum(hps) + " g/sec";
             document.getElementById('tapEarned').innerText = formatNum(m.tap);
             document.getElementById('prestigeMult').innerText = formatNum(state.prestige);
+            document.getElementById('donationMultDisplay').innerText = formatNum(m.donation);
             document.getElementById('stackCount').innerText = state.donations;
 
             const nextCost = 100000 * Math.pow(state.prestige, 3);
@@ -176,7 +180,20 @@
         function buyPrestige() {
             let pMax = 0, totalP = 0, tempP = state.prestige;
             while(state.grams >= totalP + (100000 * Math.pow(tempP, 3))) { totalP += (100000 * Math.pow(tempP, 3)); tempP++; pMax++; }
-            if (pMax > 0) { state.prestige += pMax; state.grams = 0; state.upgrades = []; state.crew.trimmers = { n: 0, c: 20, p: 1 }; state.crew.growers = { n: 0, c: 150, p: 5 }; updateUI(); }
+            
+            if (pMax > 0) { 
+                if(confirm(`Are you sure? This will reset your garden and crew, but you will gain a x${pMax} Prestige Multiplier boost!`)) {
+                    state.prestige += pMax; 
+                    state.grams = 0; 
+                    state.level = 1;
+                    state.exp = 0;
+                    state.upgrades = []; 
+                    state.strains = [];
+                    state.crew.trimmers = { n: 0, c: 20, p: 1 }; 
+                    state.crew.growers = { n: 0, c: 150, p: 5 }; 
+                    updateUI(); 
+                }
+            }
         }
 
         function buyMaxCrew(id) {
@@ -195,7 +212,7 @@
             if(!state.upgrades.includes(id) && state.grams >= u.cost) { state.grams -= u.cost; state.upgrades.push(id); updateUI(); }
         }
 
-        function hardReset() { if(confirm("Full Reset?")) { state.grams = 0; state.level = 1; state.exp = 0; state.prestige = 1; state.crew = { trimmers: { n: 0, c: 20, p: 1 }, growers: { n: 0, c: 150, p: 5 } }; state.upgrades = []; state.strains = []; updateUI(); } }
+        function hardReset() { if(confirm("FULL DATA WIPE? This cannot be undone.")) { state.grams = 0; state.level = 1; state.exp = 0; state.prestige = 1; state.donations = 0; state.crew = { trimmers: { n: 0, c: 20, p: 1 }, growers: { n: 0, c: 150, p: 5 } }; state.upgrades = []; state.strains = []; updateUI(); } }
 
         async function init() {
             let savedName = localStorage.getItem('cannaUsername');
@@ -207,22 +224,21 @@
 
             paypal.Buttons({
                 createOrder: (d, a) => a.order.create({ purchase_units: [{ amount: { value: '4.99' } }] }),
-                onApprove: (d, a) => a.order.capture().then(() => { state.donations++; updateUI(); })
+                onApprove: (d, a) => a.order.capture().then(() => { 
+                    state.donations++; 
+                    alert("THANK YOU! Your x20 Multiplier has been applied!");
+                    updateUI(); 
+                })
             }).render('#paypal-button-container');
 
-            // --- REFACTORED CHAT ---
             const chatBox = document.getElementById('chat-box');
-            
-            // Fetch History
             const { data: history } = await sb.from('messages').select('player_name, message_text').order('created_at', {ascending: false}).limit(20);
             if(history) {
                 chatBox.innerHTML = history.reverse().map(m => `<div><b>${m.player_name}:</b> ${m.message_text}</div>`).join('');
                 chatBox.scrollTop = chatBox.scrollHeight;
             }
 
-            // Realtime
-            sb.channel('chat_channel')
-            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
+            sb.channel('chat_channel').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, payload => {
                 chatBox.innerHTML += `<div><b>${payload.new.player_name}:</b> ${payload.new.message_text}</div>`;
                 chatBox.scrollTop = chatBox.scrollHeight;
             }).subscribe();
@@ -235,7 +251,6 @@
                 }
             };
 
-            // Loops
             setInterval(() => {
                 const m = getMults();
                 const hps = (state.crew.trimmers.n * 1 + state.crew.growers.n * 5) * m.auto;
@@ -246,10 +261,8 @@
 
             setInterval(async () => {
                 await sb.from('leaderboard').upsert({ player_name: state.name, grams: Math.floor(state.grams), game_state: state, player_level: state.level, last_active: new Date().toISOString() });
-                const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-                const { count } = await sb.from('leaderboard').select('*', { count: 'exact', head: true }).gt('last_active', fiveMinsAgo);
+                const { count } = await sb.from('leaderboard').select('*', { count: 'exact', head: true }).gt('last_active', new Date(Date.now() - 300000).toISOString());
                 document.getElementById('onlineCount').innerText = count || 1;
-                
                 const { data: lb } = await sb.from('leaderboard').select('player_name, player_level, grams').order('grams', {ascending:false}).limit(10);
                 if(lb) document.getElementById('leaderboard').innerHTML = lb.map((p,i)=>`<div class="leaderboard-item ${p.player_name === state.name ? 'you-row' : ''}"><b>#${i+1} ${p.player_name}</b><div class="lb-stats"><span>Lvl ${p.player_level}</span><span>${formatNum(p.grams)}g</span></div></div>`).join('');
             }, 5000);
@@ -269,4 +282,3 @@
     </script>
 </body>
 </html>
-
